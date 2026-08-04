@@ -1,0 +1,95 @@
+{
+  "convencao": "Toda ação disparada pela Delivery Manager registra inicio/fim (local -03:00). Se o fim não for registrado, a ação TRAVOU ou foi cancelada. Usar para diagnóstico de travamentos.",
+  "ultimaAtualizacao": "2026-08-03T14:30:00-03:00",
+  "rodada": "Validação de nomes: Gastô ❌ rejeitado, Listô ❌ rejeitado, Listei! ⚠️ aprovado com ressalvas — aguardando decisão final do chefe.",
+  "sessoes": [
+    {
+      "id": "S2026-08-03-01",
+      "acao": "Descoberta de produto (entrevista 10 perguntas) + criação da estrutura do projeto (project-state, ROADMAP, docs/especificacao)",
+      "inicio": "2026-08-03T12:00:00-03:00",
+      "fim": "2026-08-03T13:50:00-03:00",
+      "resultado": "Definição do produto aprovada pelo chefe. Próximo passo: pesquisa de mercado (market-researcher) e decisão de monetização.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-02",
+      "acao": "Pesquisa de mercado: concorrentes (Listonic, Bring, AnyList, Out of Milk, price books), demanda, diferencial e monetização",
+      "inicio": "2026-08-03T13:52:00-03:00",
+      "fim": "2026-08-03T13:55:00-03:00",
+      "resultado": "Pesquisa concluída. Nenhum concorrente oferece o combo orçamento mensal 3 visões + histórico mês a mês + compartilhamento em tempo real. Recomendação: Freemium (Opção B).",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-03",
+      "acao": "Decisão B1 (monetização) aprovada pelo chefe: Opção B — Freemium (grátis 1-2 listas + Premium R$ 29,90/ano)",
+      "inicio": "2026-08-03T14:00:00-03:00",
+      "fim": "2026-08-03T14:05:00-03:00",
+      "resultado": "Modelo de negócio definido: Freemium. Orçamento 3 visões + histórico + família ilimitada = recursos Premium desde o MVP. Próximo passo: planejamento técnico (tech-lead) e início da Fase 1.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-04",
+      "acao": "Análise de mercado de nomes (Rafael) + brainstorm de nomes (Beatriz, Larissa) — reunião de naming",
+      "inicio": "2026-08-03T14:12:00-03:00",
+      "fim": "2026-08-03T14:20:00-03:00",
+      "resultado": "Rafael: nicho saturado, família Cesta* esgotada (NaCesta lançado 07/2026); recomenda Caderno da Feira / Lista Cheia / Na Meta. Beatriz: 15 nomes (destaques Nossa Feira, OrçaLista, Gastô). Larissa: 10 nomes (recomenda FazAFeira, 2ª DeuConta). Aguardando decisão do chefe.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-05",
+      "acao": "Validação do nome Gastô (Rafael) — teste de disponibilidade, lojas, INPI e percepção",
+      "inicio": "2026-08-03T14:22:00-03:00",
+      "fim": "2026-08-03T14:26:00-03:00",
+      "resultado": "❌ Gastô REJEITADO: domínios 0/9 disponíveis (gasto.com.br squatter, gasto.app à venda), homônimo exato 'Gastô — Controle financeiro' + Gastto (2026) + Gastômetro (IBPT), nome cai na categoria finanças (errado), pronúncia = meme #gastou. Rafael recomenda plano B: Caderno da Feira / FazAFeira.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-06",
+      "acao": "Validação dos nomes Listei! e Listô (Rafael)",
+      "inicio": "2026-08-03T14:28:00-03:00",
+      "fim": "2026-08-03T14:33:00-03:00",
+      "resultado": "❌ Listô REJEITADO (saturação global, colide com fintech BR Super Listo e 3 apps de lista homônimos, listo.com.br = corretora de seguros ativa). ⚠️ Listei! APROVADO COM RESSALVAS: iOS livre, categoria correta (verbo listar), verbo de campanha forte; mas homônimo exato no Play (com.listei) e listei.com.br ocupado — listeiapp.com.br DISPONÍVEL (R$ 40/ano). Condições: subtítulo forte de categoria, pacote com.listeiapp.*, consulta INPI formal.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-07",
+      "acao": "3ª análise de nomes na vibe Gastô/Listei (Rafael) + filtro do chefe (remover referências a 'feira')",
+      "inicio": "2026-08-03T14:36:00-03:00",
+      "fim": "2026-08-03T14:41:00-03:00",
+      "resultado": "18 candidatos gerados, 8 finalistas. Filtro do chefe removeu todos com 'feira' (Caderno da Feira, FazAFeira, Feira!, TáFeita, Xepaô). Finalistas na vibe do chefe: 1º Montei ✅ (sem homônimo, 'montei a lista'), 2º Fechei ✅ ('fechei o orçamento'), 3º Juntei ⚠️ (angula poupança). Descartados: Anotei ❌ (homônimos), Bora ❌ (transporte), Fechô ⚠️ (acento/buscabilidade), Anotô ⚠️ (colisão Anoto). Aguardando decisão final do chefe.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-08",
+      "acao": "4ª análise: família de nomes 'Aí' com duplo sentido (coloquial BR + AI) — ideia do chefe",
+      "inicio": "2026-08-03T14:44:00-03:00",
+      "fim": "2026-08-03T14:49:00-03:00",
+      "resultado": "16 candidatos gerados. ListaAí ❌ (4 homônimos ativos no mesmo nicho), OrçaAí ❌ (app ativo). APROVADOS: 1º BotaAí ✅ (botaai.com.br LIVRE, zero homônimo, 'bota aí na lista que a AI resolve'), 2º SacolaAí ✅ (sacolaai.com.br LIVRE, reconhecimento de categoria), 3º FechaAí ⚠️ (fechaai.com.br tomado por especulador 05/2026). Alerta: especulação ativa na família Aí (gastaai 02/2026, fechaai 05/2026).",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-09",
+      "acao": "5ª análise: validação do nome ListAI (grafia do chefe, Lista + AI)",
+      "inicio": "2026-08-03T14:52:00-03:00",
+      "fim": "2026-08-03T14:56:00-03:00",
+      "resultado": "❌ ListAI REJEITADO: app homônimo ativo na App Store no mesmo nicho (id6747041348, lista de compras + IA), concorrente BR listai.app com MESMO posicionamento ('Listai ™'), todos domínios tomados (listai.io e getlistai.com registrados 03/2026 por especuladores). Busca na loja é fonética — grafia única não protege. Nome promete IA que a Fase 1 ainda não entrega. E Listei! TAMBÉM CAIU (colisão nova: 'Listei - Listas e Calculadora' + 'JáListei' jalistei.com.br, mesmo nicho). Recomendação: BotaAí (primário) / SacolaAí (secundário) — registrar AGORA.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-10",
+      "acao": "6ª análise: nomes fora do pt-BR (inglês/portunhol) + possessivos + gerúndio (sugestões do chefe: Meu Carrinho, Minha Lista, Listando, ListToBuy, ListMe)",
+      "inicio": "2026-08-03T15:02:00-03:00",
+      "fim": "2026-08-03T15:07:00-03:00",
+      "resultado": "22 candidatos gerados, 8 finalistas. Dos 5 do chefe, só ListToBuy ✅ e Listando ⚠️ sobrevivem. Meu Carrinho ❌ (app CONCORRENTE ativo do Grupo Buscapé, mesma categoria/recursos), ListMe ❌ (tarefas + lista alemã), Minha Lista ❌ (genérico, domínios tomados). RANKING: 1º ListToBuy ✅ (listtobuy.com.br/.com/.app TODOS LIVRES, loja limpa, inglês simples 'lista pra comprar'), 2º Listando ⚠️ (conflito Listando GmbH Alemanha), 3º SacolaCheia ⚠️ (varejo homônimo). Próximo: registrar os 3 domínios do ListToBuy AGORA (~R$150-200/ano) + INPI + teste de usuários.",
+      "status": "completed"
+    },
+    {
+      "id": "S2026-08-03-11",
+      "acao": "Decisão do chefe: nome oficial LISTTOBUY + endereço Vercel gratuito por enquanto (domínio próprio/INPI postergados)",
+      "inicio": "2026-08-03T15:10:00-03:00",
+      "fim": "2026-08-03T15:15:00-03:00",
+      "resultado": "✅ Nome oficial: ListToBuy (decisão D6 registrada no project-state.md). Memória atualizada: project-state.md (D6, pendências P1/P2/P3, task_ids), ROADMAP.md (Fase 0, domínio postergado). Próximo passo: repositório GitHub (aguardando account do chefe) + arquitetura (tech-lead Ivan).",
+      "status": "completed"
+    }
+  ]
+}

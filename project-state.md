@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-03 15:10
+> Última atualização: 2026-08-03 (README.md público criado)
 
 ---
 
@@ -58,6 +58,7 @@ Analytics:   a definir
 | `docs/especificacao.md` | Definição do produto (decisões da entrevista) | Fonte da verdade de produto |
 | `ROADMAP.md` | Fases e entregas planejadas | |
 | `project-state.md` | Memória canônica do projeto | Este arquivo |
+| `README.md` | Vitrine pública do projeto (pt-BR, tom comercial) | Criado em 03/08/2026 — pronto para o repo público |
 
 ## 6. Auditorias Recentes
 

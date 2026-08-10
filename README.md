@@ -17,7 +17,64 @@
 
 </div>
 
+<p align="center">
+  <a href="#português">Português</a> | <a href="#english">English</a>
+</p>
+
 ---
+
+# <a id="português"></a>Português
+
+# ListToBuy — Lista de Compras com Orçamento
+
+> **Anota a lista, o app controla o orçamento.**
+
+App de lista de compras de supermercado com **orçamento mensal**, **histórico de preços** e **compartilhamento familiar em tempo real**.
+
+### Funcionalidades
+
+- **Orçamentos mensais** — cada lista é vinculada a um mês com seu próprio limite
+- **3 visões de valor** — Valor Total da Lista, Valor Comprado e Ainda Tem Para Gastar
+- **Histórico de preços** — guarda o preço de cada item por data e mostra a evolução mês a mês
+- **Compartilhamento em tempo real** — convide a família para editar a mesma lista juntos
+- **Modelo Freemium** — grátis com 1-2 listas · Premium por R$ 29,90/ano
+
+### Stack
+
+| Camada | Tecnologia |
+|--------|------------|
+| Frontend | Next.js 16 · React 19 · TypeScript strict · Tailwind v4 · shadcn-ui |
+| Backend | Supabase (PostgreSQL + Auth + Storage) · Drizzle ORM |
+| Pagamentos | Stripe |
+| Deploy | Vercel |
+
+### Status do Projeto
+
+| Fase | Status |
+|------|--------|
+| Fase 0 — Fundação | ✅ Concluída |
+| Fase 1 — MVP | 🚧 Em Planejamento |
+
+### Como rodar
+
+```bash
+git clone https://github.com/devLeandroCoelho/listtobuy.git
+cd listtobuy
+npm install
+npm run dev
+```
+
+> O código será adicionado na Fase 1 (MVP).
+
+Consulte o [ROADMAP.md](ROADMAP.md) para o planejamento completo.
+
+**Licença:** A definir
+
+</div>
+
+---
+
+# <a id="english"></a>English
 
 Grocery shopping list app with **monthly budget tracking**, **price history**, and **real-time family sharing**.
 
@@ -85,52 +142,3 @@ To be defined.
 ---
 
 <div align="center">
-
-## 🇧🇷 Português
-
-# ListToBuy — Lista de Compras com Orçamento
-
-> **Anota a lista, o app controla o orçamento.**
-
-App de lista de compras de supermercado com **orçamento mensal**, **histórico de preços** e **compartilhamento familiar em tempo real**.
-
-### Funcionalidades
-
-- **Orçamentos mensais** — cada lista é vinculada a um mês com seu próprio limite
-- **3 visões de valor** — Valor Total da Lista, Valor Comprado e Ainda Tem Para Gastar
-- **Histórico de preços** — guarda o preço de cada item por data e mostra a evolução mês a mês
-- **Compartilhamento em tempo real** — convide a família para editar a mesma lista juntos
-- **Modelo Freemium** — grátis com 1-2 listas · Premium por R$ 29,90/ano
-
-### Stack
-
-| Camada | Tecnologia |
-|--------|------------|
-| Frontend | Next.js 16 · React 19 · TypeScript strict · Tailwind v4 · shadcn-ui |
-| Backend | Supabase (PostgreSQL + Auth + Storage) · Drizzle ORM |
-| Pagamentos | Stripe |
-| Deploy | Vercel |
-
-### Status do Projeto
-
-| Fase | Status |
-|------|--------|
-| Fase 0 — Fundação | ✅ Concluída |
-| Fase 1 — MVP | 🚧 Em Planejamento |
-
-### Como rodar
-
-```bash
-git clone https://github.com/devLeandroCoelho/listtobuy.git
-cd listtobuy
-npm install
-npm run dev
-```
-
-> O código será adicionado na Fase 1 (MVP).
-
-Consulte o [ROADMAP.md](ROADMAP.md) para o planejamento completo.
-
-**Licença:** A definir
-
-</div>

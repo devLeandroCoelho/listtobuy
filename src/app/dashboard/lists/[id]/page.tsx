@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BudgetSummary } from '@/components/BudgetSummary';
+import { PriceHistory } from '@/components/PriceHistory';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -95,6 +96,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
+
+  // Estado de histórico de preços
+  const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -813,12 +817,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                             <div className="mt-2 flex items-center gap-2">
                               {item.price != null ? (
                                 /* Preço já registrado */
-                                <span
-                                  className="text-sm font-medium text-green-700"
-                                  aria-label={`Preço registrado: ${formatCurrency(item.price)}`}
-                                >
-                                  {formatCurrency(item.price)}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className="text-sm font-medium text-green-700"
+                                    aria-label={`Preço registrado: ${formatCurrency(item.price)}`}
+                                  >
+                                    {formatCurrency(item.price)}
+                                  </span>
+                                  <button
+                                    onClick={() => setShowPriceHistory(showPriceHistory === item.id ? null : item.id)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 underline"
+                                    aria-label={showPriceHistory === item.id ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
+                                  >
+                                    {showPriceHistory === item.id ? 'Ocultar' : 'Histórico'}
+                                  </button>
+                                </div>
                               ) : (
                                 /* Input para registrar preço */
                                 <div className="flex items-center gap-2 w-full">
@@ -893,6 +906,23 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             </ul>
           )}
         </div>
+
+        {/* Histórico de preços - aparece quando um item é selecionado */}
+        {showPriceHistory && (
+          <div className="mt-6">
+            <PriceHistory 
+              itemId={showPriceHistory} 
+              itemName={items.find(i => i.id === showPriceHistory)?.name || ''} 
+            />
+            <button
+              onClick={() => setShowPriceHistory(null)}
+              className="mt-2 text-sm text-gray-600 hover:text-gray-900"
+              aria-label="Fechar histórico de preços"
+            >
+              Fechar histórico
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

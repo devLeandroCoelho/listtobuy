@@ -8,8 +8,8 @@
 - [x] **Definir nome do produto — ✅ ListToBuy** (6 rodadas de validação; decisão D6)
 - [ ] Criar repositório (GitHub público — aguardando account do chefe)
 - [ ] Configurar ambiente (dev, staging, prod) — deploy Vercel gratuito por enquanto
-- [ ] Configurar CI/CD
-- [ ] Landing page / site institucional (endereço Vercel)
+- [x] Configurar CI/CD (PR #5 — GitHub Actions)
+- [x] Landing page / site institucional (PR #6 — Hero, Features, Pricing, Auth)
 - [ ] ~~Registrar domínio próprio + INPI~~ → ⏸️ postergado (D6): quando houver tração
 - [ ] Teste de aceitação do nome com 5-10 usuários BR (opcional pré-lançamento)
 

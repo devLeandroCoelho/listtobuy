@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -43,38 +43,34 @@ export default function NewListPage() {
 
   // Campos do formulário
   const [name, setName] = useState('');
-  const [month, setMonth] = useState('');
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [budget, setBudget] = useState('');
 
   const router = useRouter();
   const supabase = createClient();
   const monthOptions = getMonthOptions();
 
-  // Define mês atual como padrão
-  useEffect(() => {
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    setMonth(currentMonth);
-  }, []);
-
-  // Verifica autenticação
-  const checkAuth = useCallback(async () => {
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    if (!authUser) {
-      router.push('/login');
-      return;
-    }
-
-    setUser({ id: authUser.id, name: authUser.email?.split('@')[0] || 'Usuário' });
-    setLoading(false);
-  }, [supabase, router]);
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (!authUser) {
+        router.push('/login');
+        return;
+      }
+
+      setUser({ id: authUser.id, name: authUser.email?.split('@')[0] || 'Usuário' });
+      setLoading(false);
+    };
+
     checkAuth();
-  }, [checkAuth]);
+  }, [supabase, router]);
 
   /** Envia formulário de criação de lista */
   const handleSubmit = async (e: React.FormEvent) => {

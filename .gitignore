@@ -33,3 +33,8 @@ next-env.d.ts
 
 # Testes / coverage
 coverage/
+.vercel
+.env*
+
+# Supabase CLI (credenciais locais)
+supabase/.temp/

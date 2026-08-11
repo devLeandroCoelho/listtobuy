@@ -35,3 +35,6 @@ next-env.d.ts
 coverage/
 .vercel
 .env*
+
+# Supabase CLI (credenciais locais)
+supabase/.temp/

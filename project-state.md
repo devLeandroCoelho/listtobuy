@@ -41,6 +41,8 @@ Analytics:   a definir
 | CI | 🟡 PR #5 (feat/ci-cd) — GitHub Actions CI/CD |
 | Landing Page | 🟡 PR #6 (feat/landing-page-auth) — Hero, Features, Pricing, Auth |
 | Price Tracking + Budget Views | 🟡 PR #8 (feat/prices-views) — API preços, BudgetSummary, página lista |
+| Price History | 🟡 PR #11 (feat/price-history) — Componente PriceHistory, API /api/prices/history |
+| List Sharing | 🟡 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
 
@@ -113,4 +115,4 @@ _(n/a — banco ainda não criado)_
 
 | Métrica | Valor |
 |---|---|---|
-| Status | ✅ Descoberta + pesquisa + monetização + **naming (ListToBuy) concluídos** — próxima: arquitetura (tech-lead) e início Fase 1 |
+| Status | ✅ Descoberta + pesquisa + monetização + **naming (ListToBuy) concluídos** — Fase 1 em andamento (Price History + List Sharing) |

@@ -76,6 +76,7 @@ Analytics:   a definir
 | `supabase/migrations/` | Migrations versionadas (001 initial, 002 sharing, 003 users INSERT) | Aplicadas via `supabase db push` em 11/08/2026 |
 | `sql/001_initial.sql` / `sql/002_sharing.sql` / `sql/003_users_insert_policy.sql` | Dump SQL das migrations (referência/backup) | Mantém rastreabilidade fora do CLI |
 | `src/app/api/lists/` | Rotas CRUD de listas e itens (POST/GET/DELETE lista; POST/PUT/DELETE item) | Criadas no PR #18 — frontend depende delas |
+| `src/app/api/items/suggestions/route.ts` | GET /api/items/suggestions — autocomplete com histórico do usuário (itens já usados) | Criada no PR #21 — supabase-js puro (2 etapas), sem RPC/migration; RLS de items já isola por usuário |
 
 ## 6. Auditorias Recentes
 

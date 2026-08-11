@@ -40,6 +40,7 @@ Analytics:   a definir
 | Testes | ⬜ |
 | CI | 🟡 PR #5 (feat/ci-cd) — GitHub Actions CI/CD |
 | Landing Page | 🟡 PR #6 (feat/landing-page-auth) — Hero, Features, Pricing, Auth |
+| Price Tracking + Budget Views | 🟡 PR #8 (feat/prices-views) — API preços, BudgetSummary, página lista |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
 

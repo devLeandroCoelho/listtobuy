@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-03 (README.md público criado)
+> Última atualização: 2026-08-11 (deploy em produção, migrations 001/002 aplicadas, PRs #1–#13 merged)
 
 ---
 
@@ -14,8 +14,10 @@ preços mês a mês. Mobile + Web sincronizados. **Modelo Freemium** (grátis 1-
 listas + Premium R$ 29,90/ano).
 
 - **Nome oficial**: ListToBuy (aprovado pelo chefe em 03/08/2026, decisão D6)
-- **Domínio**: por enquanto endereço Vercel gratuito (ex.: `listtobuy.vercel.app`);
-  domínio próprio/INPI **postergados** (decisão D6)
+- **Domínio**: produção ativa em endereço Vercel
+  (`https://listtobuy-9lt1yznz7-leandro-s-projects-07ac6837.vercel.app`) — alias
+  principal ainda é a URL de deploy, não domínio próprio; domínio próprio/INPI
+  **postergados** (decisão D6)
 
 ## 2. Stack
 
@@ -33,16 +35,20 @@ Analytics:   a definir
 
 | Item | Status |
 |---|---|
-| Deploy | ⬜ não iniciado |
-| Migrations | ⬜ |
-| RLS/Segurança | ⬜ |
-| Build | ⬜ |
-| Testes | ⬜ |
-| CI | 🟡 PR #5 (feat/ci-cd) — GitHub Actions CI/CD |
-| Landing Page | 🟡 PR #6 (feat/landing-page-auth) — Hero, Features, Pricing, Auth |
-| Price Tracking + Budget Views | 🟡 PR #8 (feat/prices-views) — API preços, BudgetSummary, página lista |
-| Price History | 🟡 PR #11 (feat/price-history) — Componente PriceHistory, API /api/prices/history |
-| List Sharing | 🟡 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
+| Deploy | 🟢 Produção ativa na Vercel (`https://listtobuy-9lt1yznz7-leandro-s-projects-07ac6837.vercel.app`) — alias principal ainda é URL de deploy, não domínio próprio |
+| Supabase | 🟢 Projeto ativo `ynxbtrhaebvoblvtczna` — migrations 001 (initial) + 002 (sharing) aplicadas via `supabase db push` (11/08/2026) |
+| RLS/Segurança | 🟢 RLS habilitado em todas as tabelas (users, lists, items, prices, list_shares) |
+| Env vars (Vercel) | 🟢 `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` corrigidas apontando para o projeto correto |
+| Build | 🟢 verde |
+| Testes | 🟡 a confirmar em auditoria pós-merge |
+| CI | 🟢 verde — PRs #1–#13 merged em master |
+| Setup inicial | 🟢 PRs #1–#4 — repo, schema, Supabase client, layout |
+| Landing Page + Auth | 🟢 PR #6 (feat/landing-page-auth) — Hero, Features, Pricing, Auth |
+| Lists CRUD | 🟢 PR #7 (feat/lists-crud) |
+| Price Tracking + Budget Views | 🟢 PR #8 (feat/prices-views) — API preços, BudgetSummary, página lista |
+| Price History | 🟢 PR #11 (feat/price-history) — Componente PriceHistory, API /api/prices/history |
+| List Sharing | 🟢 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
+| Fixes | 🟢 PRs #9, #10 e #13 (types/ESLint/CI env) |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
 
@@ -54,6 +60,8 @@ Analytics:   a definir
 | D4 | Preço registrado manualmente por item (sem código de barras) | Definido na entrevista (item 6) |
 | D5 | Monetização Freemium: grátis 1-2 listas; Premium R$ 29,90/ano com listas ilimitadas, histórico de preços, orçamento 3 visões e família ilimitada | Decisão B1 aprovada pelo chefe (03/08/2026), com base em pesquisa de mercado |
 | D6 | **Nome do produto: ListToBuy** (validação de mercado com 6 rodadas: Gastô/Listô/Listei/ListAI/BotaAí/SacolaAí/Meu Carrinho/ListMe rejeitados por colisão; ListToBuy aprovado: domínios .com.br/.com/.app livres, loja limpa, inglês simples "lista pra comprar"). **Domínio próprio + INPI postergados** — por enquanto endereço Vercel gratuito | Decisão do chefe 03/08/2026; pesquisa Rafael; evita custo inicial de ~R$150-200/ano; registrar quando houver tração |
+| D7 | Deploy em produção na Vercel via git (branch master → Vercel). Alias principal = URL de deploy gerada automaticamente; domínio próprio permanece postergado (D6) | Produção ativa em 11/08/2026 — ambiente real para validar o MVP |
+| D8 | Supabase como backend de produção: projeto `ynxbtrhaebvoblvtczna`; migrations versionadas (001 initial, 002 sharing) aplicadas via `supabase db push`; RLS habilitado em todas as tabelas (users, lists, items, prices, list_shares) | Migrations aplicadas em 11/08/2026; envs `NEXT_PUBLIC_*` corrigidas na Vercel (Production) |
 
 ## 5. Arquivos-Chave
 
@@ -63,12 +71,15 @@ Analytics:   a definir
 | `ROADMAP.md` | Fases e entregas planejadas | |
 | `project-state.md` | Memória canônica do projeto | Este arquivo |
 | `README.md` | Vitrine pública do projeto (pt-BR, tom comercial) | Criado em 03/08/2026 — pronto para o repo público |
+| `supabase/migrations/` | Migrations versionadas (001 initial, 002 sharing) | Aplicadas via `supabase db push` em 11/08/2026 |
+| `sql/001_initial.sql` / `sql/002_sharing.sql` | Dump SQL das migrations (referência/backup) | Mantém rastreabilidade fora do CLI |
 
 ## 6. Auditorias Recentes
 
 | Auditor | Resultado | Foco |
 |---|---|---|
-| — | — | Nenhuma ainda (projeto recém-criado) |
+| devops (Felipe) | ✅ Migrations 001 (initial) + 002 (sharing) aplicadas via `supabase db push` (11/08/2026) | Banco de produção: tabelas users, lists, items, prices, list_shares com RLS habilitado |
+| devops (Felipe) | ✅ Env vars da Vercel (Production) corrigidas | `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` apontando para o projeto `ynxbtrhaebvoblvtczna` |
 
 ## 7. Pendências Priorizadas (Backlog)
 
@@ -78,14 +89,17 @@ Analytics:   a definir
 | B1 | Modelo de monetização (assinatura vs. gratuito) | market-researcher | Planejamento | ✅ fechado: Freemium (B) |
 
 ### 🟠 Índices e integridade
-_(n/a — banco ainda não criado)_
+_(n/a — banco de produção criado com RLS habilitado; sem pendências de integridade no momento)_
 
 ### 🟡 Menores / postergadas
 | ID | Item | Dono | Origem | Status |
 |---|---|---|---|---|
-| P1 | Registro de domínio próprio (`listtobuy.com.br`/`.com`/`.app` — todos livres hoje) | chefe | Decisão D6 | ⏸️ postergado (Vercel grátis por enquanto); registrar quando houver tração |
+| P1 | Registro de domínio próprio (`listtobuy.com.br`/`.com`/`.app` — todos livres hoje) | chefe | Decisão D6 | ⏸️ postergado (URL Vercel em uso); registrar quando houver tração |
 | P2 | Consulta formal de anterioridade INPI (classes 9/35/42) + registro de marca "LISTTOBUY" | copywriter/chefe | Decisão D6 | ⏸️ postergado; requisito antes de esforço de branding |
 | P3 | Teste de aceitação do nome com 5-10 usuários BR (pronúncia "ListToBuy", escrever, adivinhar função) | market-researcher | Rafael | ⏸️ postergado (opcional pré-lançamento) |
+| P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | 🔄 pendente — única feature do MVP não implementada |
+| P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | 🔄 pendente — falta para fechar o MVP |
+| P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ não iniciado |
 
 ## 8. Sessões por Agente (task_id para continuidade)
 
@@ -102,6 +116,8 @@ _(n/a — banco ainda não criado)_
 | market-researcher | `ses_0373237d5ffem1Yux8UUrtfP5W` | Rodada inglês/possessivos: **ListToBuy ✅ aprovado** (top 1) |
 | backend-dev | `ses_0376bbf9affeO9rM6G4EHGgn1b` | Estrutura multi-projeto + globs de permissão corrigidos |
 | copywriter | `ses_0377838e0ffejzHPIFO7DpNrbt` | AGENTS.md + GUIA-DA-FABRICA.md (multi-projeto) |
+| copywriter | — | Atualização project-state/ROADMAP pós-deploy (11/08/2026) |
+| devops | — | Migrations 001/002 aplicadas + envs Vercel corrigidas (11/08/2026) |
 
 ## 9. Fluxo de Trabalho (Convenções)
 
@@ -115,4 +131,4 @@ _(n/a — banco ainda não criado)_
 
 | Métrica | Valor |
 |---|---|---|
-| Status | ✅ Descoberta + pesquisa + monetização + **naming (ListToBuy) concluídos** — Fase 1 em andamento (Price History + List Sharing) |
+| Status | ✅ Produção ativa na Vercel · CI verde (PRs #1–#13 merged) · Supabase migrado (001/002) com RLS · Fase 1 (MVP) ~95% — falta sugestão de itens, validações/UX finais e Stripe |

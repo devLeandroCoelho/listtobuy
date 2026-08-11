@@ -95,6 +95,14 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   const supabase = await createClient();
 
+  // Verifica autenticação
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const itemId = searchParams.get('item_id');
 

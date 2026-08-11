@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-11 (smoke test pós-deploy: bugs críticos #17/#18 corrigidos; PRs #1–#18 merged)
+> Última atualização: 2026-08-11 (frontend-dev: autocomplete de sugestão de itens — PR #28 aberto)
 
 ---
 
@@ -77,6 +77,7 @@ Analytics:   a definir
 | `sql/001_initial.sql` / `sql/002_sharing.sql` / `sql/003_users_insert_policy.sql` | Dump SQL das migrations (referência/backup) | Mantém rastreabilidade fora do CLI |
 | `src/app/api/lists/` | Rotas CRUD de listas e itens (POST/GET/DELETE lista; POST/PUT/DELETE item) | Criadas no PR #18 — frontend depende delas |
 | `src/app/api/items/suggestions/route.ts` | GET /api/items/suggestions — autocomplete com histórico do usuário (itens já usados) | Criada no PR #21 — supabase-js puro (2 etapas), sem RPC/migration; RLS de items já isola por usuário |
+| `src/components/ItemSuggestions.tsx` | Autocomplete (combobox acessível) do campo "Nome do item" — debounce 200ms, listbox/option, navegação por teclado, erro silencioso | Criado no PR #28 — consumido pela página `/dashboard/lists/[id]` |
 
 ## 6. Auditorias Recentes
 
@@ -103,7 +104,7 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | P1 | Registro de domínio próprio (`listtobuy.com.br`/`.com`/`.app` — todos livres hoje) | chefe | Decisão D6 | ⏸️ postergado (URL Vercel em uso); registrar quando houver tração |
 | P2 | Consulta formal de anterioridade INPI (classes 9/35/42) + registro de marca "LISTTOBUY" | copywriter/chefe | Decisão D6 | ⏸️ postergado; requisito antes de esforço de branding |
 | P3 | Teste de aceitação do nome com 5-10 usuários BR (pronúncia "ListToBuy", escrever, adivinhar função) | market-researcher | Rafael | ⏸️ postergado (opcional pré-lançamento) |
-| P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | 🔄 pendente — única feature do MVP não implementada |
+| P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | 🔄 API pronta (PR #21) + **UI pronta (PR #28 — autocomplete no campo "Nome do item")** — aguardando review/merge |
 | P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | 🟡 em andamento — smoke test via API passou (11/08); falta teste de UX no navegador |
 | P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ não iniciado |
 | P7 | Env vars de **Preview** na Vercel (NEXT_PUBLIC_SUPABASE_*) | devops | CI/CD | 🔄 pendente — preview de PRs falha por falta das envs; produção OK |

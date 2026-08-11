@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
+import { ItemSuggestions } from '@/components/ItemSuggestions';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -609,23 +610,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
           <form onSubmit={handleAddItem} className="space-y-4">
             <div className="flex gap-3">
-              {/* Nome do item */}
+              {/* Nome do item (com autocomplete de sugestões) */}
               <div className="flex-1">
                 <label htmlFor="item-name" className="sr-only">
                   Nome do item
                 </label>
-                <input
+                <ItemSuggestions
                   id="item-name"
-                  type="text"
                   value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
+                  onValueChange={setNewItemName}
+                  onSelect={setNewItemName}
                   placeholder="Ex: Leite, Arroz, Feijão..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                             placeholder:text-gray-400"
                   required
-                  aria-required="true"
-                  autoComplete="off"
                 />
               </div>
 

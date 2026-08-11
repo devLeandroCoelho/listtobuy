@@ -1,0 +1,9 @@
+# Configuração de templates de issue do GitHub.
+# CONTRIBUTING.md ainda não existe no repo — adicionar o link abaixo quando for criado:
+# contact_links:
+#   - name: Contribuindo
+#     url: https://github.com/devLeandroCoelho/listtobuy/blob/main/CONTRIBUTING.md
+#     about: Leia o guia de contribuição antes de abrir uma issue.
+
+# Desabilita issues em branco: força o uso dos templates.
+blank_issues_enabled: false

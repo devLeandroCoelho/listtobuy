@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -34,8 +35,8 @@ export default function RegisterPage() {
       return;
     }
 
-    // 2. Criar perfil na tabela users
-    if (authData.user) {
+    // 2. Criar perfil na tabela users (quando o signup retorna sessão)
+    if (authData.user && authData.session) {
       const { error: profileError } = await supabase.from('users').insert({
         id: authData.user.id,
         name,
@@ -45,9 +46,16 @@ export default function RegisterPage() {
       if (profileError) {
         console.error('Erro ao criar perfil:', profileError);
       }
+
+      router.push('/dashboard');
+      return;
     }
 
-    router.push('/dashboard');
+    // 3. Confirmação de email habilitada no Supabase
+    if (authData.user) {
+      setNeedsEmailConfirmation(true);
+    }
+    setLoading(false);
   };
 
   return (
@@ -63,6 +71,14 @@ export default function RegisterPage() {
           {error && (
             <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">
               {error}
+            </div>
+          )}
+
+          {needsEmailConfirmation && (
+            <div className="p-3 bg-blue-50 text-blue-700 rounded-lg text-sm" role="status">
+              Conta criada! Enviamos um link de confirmação para{' '}
+              <strong>{email}</strong>. Verifique sua caixa de entrada (e o spam)
+              e confirme para entrar.
             </div>
           )}
 
@@ -118,7 +134,7 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || needsEmailConfirmation}
             className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? 'Criando...' : 'Criar Conta Grátis'}

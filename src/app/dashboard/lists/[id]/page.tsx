@@ -381,6 +381,44 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditUnit('');
   };
 
+  /** Ajuste rápido de quantidade (incremento ou decremento por toque) */
+  const handleUpdateQuantity = async (item: ItemData, delta: number) => {
+    const currentQty = Number(item.quantity);
+    const newQty = Math.max(1, currentQty + delta);
+
+    if (newQty === currentQty) return;
+
+    // Optimistic update na UI
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, quantity: String(newQty) } : i))
+    );
+
+    try {
+      const response = await fetch(`/api/lists/${id}/items/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: item.name,
+          quantity: newQty,
+          unit: item.unit,
+        }),
+      });
+
+      if (!response.ok) {
+        // Reverte em caso de erro
+        setItems((prev) =>
+          prev.map((i) => (i.id === item.id ? { ...i, quantity: item.quantity } : i))
+        );
+        setError('Erro ao atualizar quantidade');
+      }
+    } catch {
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, quantity: item.quantity } : i))
+      );
+      setError('Erro de conexão');
+    }
+  };
+
   /** Salva edição de item */
   const handleSaveEdit = async (itemId: string) => {
     setSavingEdit(true);
@@ -612,7 +650,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <span
-                  className={`text-base font-medium ${
+                  className={`text-base font-medium truncate ${
                     isCompleted
                       ? 'line-through text-gray-500'
                       : 'text-gray-900'
@@ -620,9 +658,30 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 >
                   {item.name}
                 </span>
-                <span className="text-sm text-gray-500 whitespace-nowrap">
-                  {item.quantity} {item.unit}
-                </span>
+
+                {/* Controles de quantidade (+/-) */}
+                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg p-0.5 shrink-0">
+                  <button
+                    onClick={() => handleUpdateQuantity(item, -1)}
+                    disabled={Number(item.quantity) <= 1}
+                    className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded text-sm font-bold disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                    aria-label={`Diminuir quantidade de ${item.name}`}
+                    title="Diminuir quantidade"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-semibold text-gray-800 min-w-[32px] text-center px-0.5">
+                    {item.quantity} {item.unit}
+                  </span>
+                  <button
+                    onClick={() => handleUpdateQuantity(item, 1)}
+                    className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded text-sm font-bold transition-colors"
+                    aria-label={`Aumentar quantidade de ${item.name}`}
+                    title="Aumentar quantidade"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
               {/* Seção de preço — aparece apenas quando item está comprado */}

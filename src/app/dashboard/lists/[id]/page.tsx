@@ -609,9 +609,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <h2 className="text-lg font-semibold mb-4">Adicionar Item</h2>
 
           <form onSubmit={handleAddItem} className="space-y-4">
-            <div className="flex gap-3">
+            {/* Linha responsiva: no mobile (< 640px) o campo de nome ocupa a
+                largura total em linha própria e quantidade/unidade ficam lado a
+                lado — evita o campo espremido em viewports 320–375px. Em telas
+                >= 640px mantém o layout original de três colunas. */}
+            <div className="flex flex-col gap-3 sm:flex-row">
               {/* Nome do item (com autocomplete de sugestões) */}
-              <div className="flex-1">
+              <div className="w-full sm:flex-1 sm:min-w-0">
                 <label htmlFor="item-name" className="sr-only">
                   Nome do item
                 </label>
@@ -625,45 +629,45 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 />
               </div>
 
-              {/* Quantidade */}
-              <div className="w-24">
-                <label htmlFor="item-qty" className="sr-only">
-                  Quantidade
-                </label>
-                <input
-                  id="item-qty"
-                  type="number"
-                  value={newItemQty}
-                  onChange={(e) => setNewItemQty(e.target.value)}
-                  min="0.01"
-                  step="0.01"
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base text-center
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                  aria-required="true"
-                  aria-label="Quantidade"
-                />
-              </div>
-
-              {/* Unidade */}
-              <div className="w-28">
-                <label htmlFor="item-unit" className="sr-only">
-                  Unidade de medida
-                </label>
-                <select
-                  id="item-unit"
-                  value={newItemUnit}
-                  onChange={(e) => setNewItemUnit(e.target.value)}
-                  className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                  aria-label="Unidade de medida"
-                >
-                  {UNIT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+              {/* Quantidade + Unidade — lado a lado; cabem juntas em 320px */}
+              <div className="flex gap-3 shrink-0">
+                <div className="w-24">
+                  <label htmlFor="item-qty" className="sr-only">
+                    Quantidade
+                  </label>
+                  <input
+                    id="item-qty"
+                    type="number"
+                    value={newItemQty}
+                    onChange={(e) => setNewItemQty(e.target.value)}
+                    min="0.01"
+                    step="0.01"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base text-center
+                               focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                    aria-required="true"
+                    aria-label="Quantidade"
+                  />
+                </div>
+                <div className="w-28">
+                  <label htmlFor="item-unit" className="sr-only">
+                    Unidade de medida
+                  </label>
+                  <select
+                    id="item-unit"
+                    value={newItemUnit}
+                    onChange={(e) => setNewItemUnit(e.target.value)}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base
+                               focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    aria-label="Unidade de medida"
+                  >
+                    {UNIT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 

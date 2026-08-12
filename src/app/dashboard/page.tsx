@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { isValidMonth } from '@/lib/month';
 
 interface User {
   id: string;
@@ -92,6 +93,12 @@ export default function DashboardPage() {
 
     if (newMonth === null) return; // cancelou
 
+    const month = newMonth.trim() || currentMonth;
+    if (!isValidMonth(month)) {
+      setError('Mês inválido. Use o formato YYYY-MM com mês entre 01 e 12.');
+      return;
+    }
+
     try {
       setDuplicatingId(list.id);
       setError('');
@@ -101,7 +108,7 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: `${list.name} (Cópia)`,
-          month: newMonth.trim() || currentMonth,
+          month,
         }),
       });
 

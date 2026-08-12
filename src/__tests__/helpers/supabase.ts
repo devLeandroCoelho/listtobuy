@@ -67,7 +67,8 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
 
   // Cadeias de `lists`
   const single = vi.fn().mockResolvedValue(listsResult);
-  const selectEq = vi.fn().mockReturnValue({ single });
+  // Suporta encadeamento `.eq()` repetido (ex.: .eq('id').eq('user_id').single())
+  const selectEq = vi.fn(() => ({ eq: selectEq, single }));
   const select = vi.fn().mockReturnValue({ eq: selectEq });
   const insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) });
   const deleteEq = vi.fn().mockResolvedValue({ error: deleteError });

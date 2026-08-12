@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
+import { useState, useEffect, useCallback, use, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -8,6 +8,7 @@ import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
 import { AddItemModal } from '@/components/AddItemModal';
+import { clampQuantity } from '@/lib/quantity';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -81,6 +82,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Ref do estado de itens: permite calcular a quantidade mais recente em
+  // handlers de toques rápidos sem depender do closure de render
+  const itemsRef = useRef<ItemData[]>([]);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   // Estado do formulário de novo item
   const [newItemName, setNewItemName] = useState('');
@@ -220,16 +228,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       const newItem = data.item;
 
       // Se um preço foi informado, salva já vinculado ao item
+      let priceError = false;
       if (newItemPrice) {
         const priceValue = parseFloat(newItemPrice.replace(',', '.'));
         if (!isNaN(priceValue) && priceValue >= 0) {
           const currentMonth = list?.month || new Date().toISOString().slice(0, 7);
-          await fetch('/api/prices', {
+          const priceResponse = await fetch('/api/prices', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ item_id: newItem.id, value: priceValue, month: currentMonth }),
           });
-          newItem.price = priceValue;
+          if (priceResponse.ok) {
+            newItem.price = priceValue;
+          } else {
+            priceError = true;
+          }
         }
       }
 
@@ -239,7 +252,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       setNewItemQty('1');
       setNewItemUnit('un');
       setNewItemPrice('');
-      showSuccess('Item adicionado com sucesso!');
+
+      if (priceError) {
+        setError('Item adicionado, mas o preço não pôde ser salvo. Edite o item para tentar novamente.');
+      } else {
+        showSuccess('Item adicionado com sucesso!');
+      }
     } catch {
       setError('Erro de conexão');
     } finally {
@@ -271,21 +289,31 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
     const newItem = resData.item;
 
+    let priceError = false;
     if (data.price) {
       const priceValue = parseFloat(data.price.replace(',', '.'));
       if (!isNaN(priceValue) && priceValue >= 0) {
         const currentMonth = list?.month || new Date().toISOString().slice(0, 7);
-        await fetch('/api/prices', {
+        const priceResponse = await fetch('/api/prices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ item_id: newItem.id, value: priceValue, month: currentMonth }),
         });
-        newItem.price = priceValue;
+        if (priceResponse.ok) {
+          newItem.price = priceValue;
+        } else {
+          priceError = true;
+        }
       }
     }
 
     setItems((prev) => [...prev, newItem]);
-    showSuccess('Item adicionado!');
+
+    if (priceError) {
+      setError('Item adicionado, mas o preço não pôde ser salvo. Ajuste-o depois na lista.');
+    } else {
+      showSuccess('Item adicionado!');
+    }
   };
 
   /** Alterna status comprado/pendente de um item */
@@ -383,14 +411,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   /** Ajuste rápido de quantidade (incremento ou decremento por toque) */
   const handleUpdateQuantity = async (item: ItemData, delta: number) => {
-    const currentQty = Number(item.quantity);
-    const newQty = Math.max(1, currentQty + delta);
+    const latestItem = itemsRef.current.find((i) => i.id === item.id) ?? item;
+    const newQty = clampQuantity(latestItem.quantity, delta);
 
-    if (newQty === currentQty) return;
+    if (newQty === Number(latestItem.quantity)) return;
 
     // Optimistic update na UI
     setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, quantity: String(newQty) } : i))
+      prev.map((i) =>
+        i.id === item.id
+          ? { ...i, quantity: String(clampQuantity(i.quantity, delta)) }
+          : i
+      )
     );
 
     try {
@@ -1162,6 +1194,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Modal de Adição */}
       <AddItemModal
+        key={isAddModalOpen ? 'open' : 'closed'}
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddItem={handleAddItemFromModal}

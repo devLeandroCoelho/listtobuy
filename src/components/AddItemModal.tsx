@@ -28,17 +28,6 @@ export function AddItemModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Limpa o formulário ao abrir
-  useEffect(() => {
-    if (isOpen) {
-      setName('');
-      setQuantity('1');
-      setUnit('un');
-      setPrice('');
-      setError('');
-    }
-  }, [isOpen]);
-
   // Tecla ESC para fechar
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

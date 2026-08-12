@@ -8,6 +8,7 @@ import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
 import { AddItemModal } from '@/components/AddItemModal';
+import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
 import { clampQuantity } from '@/lib/quantity';
 
 /**
@@ -48,7 +49,8 @@ interface ItemData {
   completed: string; // "0" ou "1"
   created_at: string;
   updated_at: string;
-  price?: number | null; // preço registrado (pode vir do join com prices)
+  price?: number | null; // preço registrado
+  category?: string;
 }
 
 /** Formata mês para exibição (YYYY-MM → "Agosto de 2026") */
@@ -271,6 +273,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     quantity: number;
     unit: string;
     price?: string;
+    category?: string;
   }) => {
     const response = await fetch(`/api/lists/${id}/items`, {
       method: 'POST',
@@ -287,7 +290,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       throw new Error(resData.error || 'Erro ao adicionar item');
     }
 
-    const newItem = resData.item;
+    const newItem: ItemData = {
+      ...resData.item,
+      category: data.category || guessCategoryByName(data.name),
+    };
 
     let priceError = false;
     if (data.price) {
@@ -585,6 +591,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const renderListItem = (item: ItemData) => {
     const isCompleted = item.completed === '1';
     const currentPrice = priceInputs[item.id] || '';
+    const cat = getCategoryById(item.category || guessCategoryByName(item.name));
 
     return (
       <li
@@ -688,6 +695,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       : 'text-gray-900'
                   }`}
                 >
+                  <span className="mr-1 text-xs opacity-75">{cat.icon}</span>
                   {item.name}
                 </span>
 
@@ -1116,11 +1124,28 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     🎉 Tudo comprado! Nenhum item pendente.
                   </div>
                 ) : (
-                  <ul className="space-y-2" role="list" aria-label="Itens pendentes">
-                    {items
-                      .filter((item) => item.completed === '0')
-                      .map((item) => renderListItem(item))}
-                  </ul>
+                  <div className="space-y-4">
+                    {CATEGORIES.map((category) => {
+                      const catPendingItems = items.filter(
+                        (item) =>
+                          item.completed === '0' &&
+                          (item.category || guessCategoryByName(item.name)) === category.id
+                      );
+
+                      if (catPendingItems.length === 0) return null;
+
+                      return (
+                        <div key={category.id} className="space-y-2">
+                          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                            <span>{category.icon}</span> {category.name} ({catPendingItems.length})
+                          </h3>
+                          <ul className="space-y-2" role="list" aria-label={`Itens pendentes de ${category.name}`}>
+                            {catPendingItems.map((item) => renderListItem(item))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 

@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-12 (Onda 1 concluída — fix mobile <375px mergeado PR #29; CI com vitest mergeado PR #32; http200 segurança + OSS setup mergeados; 22 testes passando)
+> Última atualização: 2026-08-12 (decisões do chefe aplicadas: Stripe P6 ⏸️ postergado até tração — D10; categorização #41 priorizada para o sprint 13/08 — D11; repo consolidado renomeado `frontend-lab` — D3; Anomalithic vitrine — D2; bloqueios do QA de 12/08 corrigidos no PR #47 — issue #46)
 
 ---
 
@@ -65,6 +65,8 @@ Analytics:   a definir
 | D7 | Deploy em produção na Vercel via git (branch master → Vercel). Alias principal = URL de deploy gerada automaticamente; domínio próprio permanece postergado (D6) | Produção ativa em 11/08/2026 — ambiente real para validar o MVP |
 | D8 | Supabase como backend de produção: projeto `ynxbtrhaebvoblvtczna`; migrations versionadas (001 initial, 002 sharing, 003 users INSERT) aplicadas via `supabase db push`; RLS habilitado em todas as tabelas (users, lists, items, prices, list_shares) | Migrations aplicadas em 11/08/2026; envs `NEXT_PUBLIC_*` corrigidas na Vercel (Production) |
 | D9 | **Confirm email OFF** no Supabase (autoconfirm) — cadastro loga direto, sem esperar e-mail | Decisão do chefe 11/08/2026 (opção recomendada para MVP); app também trata fluxo com confirmação (mensagem "confirme seu email") |
+| D10 | **Stripe (P6/#25) POSTERGADO até tração** — NÃO configurar conta Stripe agora; retomar quando houver usuários ativos (critério de retomada: ex. ~1.000 usuários ativos/mês ou 3 meses de crescimento contínuo; métrica final a confirmar com o chefe na retomada) | Decisão do chefe 12/08/2026 (D1) |
+| D11 | **Categorização de itens por seção do mercado (issue #41) PRIORIZADA** — entra no sprint de 13/08 (Onda 2) | Decisão do chefe 12/08/2026 (D4) |
 
 ## 5. Arquivos-Chave
 
@@ -107,9 +109,11 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | P3 | Teste de aceitação do nome com 5-10 usuários BR (pronúncia "ListToBuy", escrever, adivinhar função) | market-researcher | Rafael | ⏸️ postergado (opcional pré-lançamento) |
 | P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (12/08)** — API (PR #21) + UI autocomplete (PR #28) + fix mobile <375px (PR #29) — issue #23 totalmente encerrada |
 | P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | 🟡 em andamento — smoke test via API passou (11/08); teste navegador + Lighthouse pendente (issue #24) |
-| P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ não iniciado — **aguardando decisão do chefe**: conta Stripe, dados fiscais, agora vs. postergar (issue #25) |
+| P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ **POSTERGADO até tração (decisão do chefe 12/08, D10)** — issue #25 permanece aberta; retomar quando houver usuários ativos (critério de retomada: ex. ~1.000 usuários ativos/mês ou 3 meses de crescimento contínuo) |
 | P7 | Env vars de **Preview** na Vercel (NEXT_PUBLIC_SUPABASE_*) | devops | CI/CD | ✅ **CONCLUÍDO (11/08)** — envs adicionadas ao ambiente Preview (issue #26, registrada e fechada) |
 | P8 | Job de testes no CI (hoje só typecheck+lint+build) + suíte de testes | devops / qa-engineer | Qualidade | ✅ **CONCLUÍDO (12/08)** — job vitest + 22 testes (lists-api 14 + suggestions-api 8) mergeados PR #32 — issue #27 encerrada |
+| P9 | **Categorização de itens por seção do mercado** (issue #41, criada 12/08) | backend-dev / frontend-dev / qa-engineer | Decisão D11 (12/08) | 🟡 **priorizada — sprint 13/08 (Onda 2)** |
+| P10 | **Bloqueios do QA de 12/08** (issue #46): preço descartado silenciosamente, lint set-state-in-effect, race no +/-, mês inválido no clone | frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (12/08)** — PR #47 (branch fix/qa-46, aguardando review do dev-manager); 33 testes passando |
 
 ## 8. Sessões por Agente (task_id para continuidade)
 

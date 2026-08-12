@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
+import { CATEGORIES, guessCategoryByName } from '@/lib/categories';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface AddItemModalProps {
     quantity: number;
     unit: string;
     price?: string;
+    category?: string;
   }) => Promise<void>;
   unitOptions: Array<{ value: string; label: string }>;
 }
@@ -25,6 +27,7 @@ export function AddItemModal({
   const [quantity, setQuantity] = useState('1');
   const [unit, setUnit] = useState('un');
   const [price, setPrice] = useState('');
+  const [category, setCategory] = useState('outros');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,12 +66,21 @@ export function AddItemModal({
         quantity: qty,
         unit,
         price: price.trim() || undefined,
+        category,
       });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao adicionar item');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleNameChange = (val: string) => {
+    setName(val);
+    const guessed = guessCategoryByName(val);
+    if (guessed !== 'outros') {
+      setCategory(guessed);
     }
   };
 
@@ -118,8 +130,8 @@ export function AddItemModal({
             <ItemSuggestions
               id="modal-item-name"
               value={name}
-              onValueChange={setName}
-              onSelect={setName}
+              onValueChange={handleNameChange}
+              onSelect={handleNameChange}
               placeholder="Ex: Leite, Arroz, Feijão..."
               required
             />
@@ -160,6 +172,25 @@ export function AddItemModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Categoria / Seção do Mercado */}
+          <div>
+            <label htmlFor="modal-item-category" className="block text-sm font-medium text-gray-700 mb-1">
+              Seção / Categoria no Mercado
+            </label>
+            <select
+              id="modal-item-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.icon} {cat.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Preço (opcional) */}

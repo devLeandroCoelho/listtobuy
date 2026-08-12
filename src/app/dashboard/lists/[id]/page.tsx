@@ -107,6 +107,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado do Modal de Adição (Mobile FAB)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // Estado de recolhimento da seção de Comprados
+  const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -508,6 +511,213 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const budget = Number(list?.budget ?? 0);
   const remaining = budget - totalSpent;
 
+  /** Renderiza cada linha de item da lista (reutilizado nas seções de pendentes e comprados) */
+  const renderListItem = (item: ItemData) => {
+    const isCompleted = item.completed === '1';
+    const currentPrice = priceInputs[item.id] || '';
+
+    return (
+      <li
+        key={item.id}
+        className={`p-3 rounded-lg border transition-colors duration-150
+          ${isCompleted
+            ? 'bg-green-50/70 border-green-200'
+            : 'bg-white border-gray-200 hover:bg-gray-50'
+          }`}
+      >
+        {editingItemId === item.id ? (
+          /* Modo de edição */
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-base
+                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="Nome do item"
+              autoFocus
+            />
+            <input
+              type="number"
+              value={editQty}
+              onChange={(e) => setEditQty(e.target.value)}
+              min="0.01"
+              step="0.01"
+              className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
+                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="Quantidade"
+            />
+            <select
+              value={editUnit}
+              onChange={(e) => setEditUnit(e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-lg text-base
+                         focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              aria-label="Unidade"
+            >
+              {UNIT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => handleSaveEdit(item.id)}
+              disabled={savingEdit}
+              className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+              aria-label="Salvar alterações"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Cancelar edição"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          /* Modo de visualização */
+          <div className="flex items-start gap-3">
+            {/* Checkbox de comprado */}
+            <div className="pt-1">
+              <button
+                onClick={() => handleToggleComplete(item)}
+                className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center
+                  transition-colors duration-150
+                  ${isCompleted
+                    ? 'bg-green-500 border-green-500 text-white'
+                    : 'border-gray-300 hover:border-green-500'
+                  }`}
+                aria-label={
+                  isCompleted
+                    ? `Marcar ${item.name} como pendente`
+                    : `Marcar ${item.name} como comprado`
+                }
+                aria-pressed={isCompleted}
+              >
+                {isCompleted && (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Informações do item */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={`text-base font-medium ${
+                    isCompleted
+                      ? 'line-through text-gray-500'
+                      : 'text-gray-900'
+                  }`}
+                >
+                  {item.name}
+                </span>
+                <span className="text-sm text-gray-500 whitespace-nowrap">
+                  {item.quantity} {item.unit}
+                </span>
+              </div>
+
+              {/* Seção de preço — aparece apenas quando item está comprado */}
+              {isCompleted && (
+                <div className="mt-2 flex items-center gap-2">
+                  {item.price != null ? (
+                    /* Preço já registrado */
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="text-sm font-medium text-green-700"
+                        aria-label={`Preço registrado: ${formatCurrency(item.price)}`}
+                      >
+                        {formatCurrency(item.price)}
+                      </span>
+                      <button
+                        onClick={() => setShowPriceHistory(showPriceHistory === item.id ? null : item.id)}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline"
+                        aria-label={showPriceHistory === item.id ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
+                      >
+                        {showPriceHistory === item.id ? 'Ocultar' : 'Histórico'}
+                      </button>
+                    </div>
+                  ) : (
+                    /* Input para registrar preço */
+                    <div className="flex items-center gap-2 w-full">
+                      <label
+                        htmlFor={`price-${item.id}`}
+                        className="text-sm text-gray-600 whitespace-nowrap"
+                      >
+                        Preço:
+                      </label>
+                      <input
+                        id={`price-${item.id}`}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={currentPrice}
+                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSavePrice(item.id);
+                          }
+                        }}
+                        autoFocus={focusPriceItemId === item.id}
+                        className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        aria-label={`Digite o preço de ${item.name}`}
+                      />
+                      <button
+                        onClick={() => handleSavePrice(item.id)}
+                        disabled={!currentPrice || savingPrice[item.id]}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label={
+                          savingPrice[item.id]
+                            ? 'Salvando preço...'
+                            : `Salvar preço de ${item.name}`
+                        }
+                      >
+                        {savingPrice[item.id] ? '...' : 'OK'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Botões de ação */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => startEdit(item)}
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
+                           transition-colors duration-150"
+                aria-label={`Editar ${item.name}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => handleDeleteItem(item)}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
+                           transition-colors duration-150"
+                aria-label={`Remover ${item.name}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+      </li>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Carregando">
@@ -791,225 +1001,75 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </div>
 
         {/* Lista de itens */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">
-            Itens da Lista
-            <span className="text-gray-500 font-normal ml-2">({totalItems})</span>
-          </h2>
-
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
           {items.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <div className="text-4xl mb-3" aria-hidden="true">📝</div>
               <p className="text-base">Nenhum item ainda. Adicione o primeiro!</p>
             </div>
           ) : (
-            <ul className="space-y-2" role="list" aria-label="Itens da lista de compras">
-              {items.map((item) => {
-                const isCompleted = item.completed === '1';
-                const currentPrice = priceInputs[item.id] || '';
+            <>
+              {/* Seção 1: Itens Pendentes */}
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span>🛒</span> Pendentes
+                  </span>
+                  <span className="text-sm font-normal text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                    {pendingItems} {pendingItems === 1 ? 'item' : 'itens'}
+                  </span>
+                </h2>
 
-                return (
-                  <li
-                    key={item.id}
-                    className={`p-3 rounded-lg border transition-colors duration-150
-                      ${isCompleted
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                      }`}
+                {items.filter((i) => i.completed === '0').length === 0 ? (
+                  <div className="p-4 text-center bg-green-50 rounded-lg border border-green-100 text-green-800 text-sm font-medium">
+                    🎉 Tudo comprado! Nenhum item pendente.
+                  </div>
+                ) : (
+                  <ul className="space-y-2" role="list" aria-label="Itens pendentes">
+                    {items
+                      .filter((item) => item.completed === '0')
+                      .map((item) => renderListItem(item))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Seção 2: Itens Comprados (Colapsável) */}
+              {completedItems > 0 && (
+                <div className="pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => setIsCompletedCollapsed((prev) => !prev)}
+                    className="w-full flex items-center justify-between py-2 text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors focus:outline-none"
+                    aria-expanded={!isCompletedCollapsed}
+                    aria-controls="completed-items-list"
                   >
-                    {editingItemId === item.id ? (
-                      /* Modo de edição */
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-base
-                                     focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          aria-label="Nome do item"
-                          autoFocus
-                        />
-                        <input
-                          type="number"
-                          value={editQty}
-                          onChange={(e) => setEditQty(e.target.value)}
-                          min="0.01"
-                          step="0.01"
-                          className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
-                                     focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          aria-label="Quantidade"
-                        />
-                        <select
-                          value={editUnit}
-                          onChange={(e) => setEditUnit(e.target.value)}
-                          className="px-2 py-2 border border-gray-300 rounded-lg text-base
-                                     focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                          aria-label="Unidade"
-                        >
-                          {UNIT_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => handleSaveEdit(item.id)}
-                          disabled={savingEdit}
-                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                          aria-label="Salvar alterações"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                          aria-label="Cancelar edição"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : (
-                      /* Modo de visualização */
-                      <div className="flex items-start gap-3">
-                        {/* Checkbox de comprado */}
-                        <div className="pt-1">
-                          <button
-                            onClick={() => handleToggleComplete(item)}
-                            className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center
-                              transition-colors duration-150
-                              ${isCompleted
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-gray-300 hover:border-green-500'
-                              }`}
-                            aria-label={
-                              isCompleted
-                                ? `Marcar ${item.name} como pendente`
-                                : `Marcar ${item.name} como comprado`
-                            }
-                            aria-pressed={isCompleted}
-                          >
-                            {isCompleted && (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </button>
-                        </div>
+                    <span className="flex items-center gap-2 text-base">
+                      <span>✅</span> Comprados ({completedItems})
+                    </span>
+                    <span className="text-sm text-gray-500 flex items-center gap-1 font-normal">
+                      {isCompletedCollapsed ? 'Mostrar' : 'Ocultar'}
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isCompletedCollapsed ? '' : 'rotate-180'
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </span>
+                  </button>
 
-                        {/* Informações do item */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span
-                              className={`text-base font-medium ${
-                                isCompleted
-                                  ? 'line-through text-gray-500'
-                                  : 'text-gray-900'
-                              }`}
-                            >
-                              {item.name}
-                            </span>
-                            <span className="text-sm text-gray-500 whitespace-nowrap">
-                              {item.quantity} {item.unit}
-                            </span>
-                          </div>
-
-                          {/* Seção de preço — aparece apenas quando item está comprado */}
-                          {isCompleted && (
-                            <div className="mt-2 flex items-center gap-2">
-                              {item.price != null ? (
-                                /* Preço já registrado */
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className="text-sm font-medium text-green-700"
-                                    aria-label={`Preço registrado: ${formatCurrency(item.price)}`}
-                                  >
-                                    {formatCurrency(item.price)}
-                                  </span>
-                                  <button
-                                    onClick={() => setShowPriceHistory(showPriceHistory === item.id ? null : item.id)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 underline"
-                                    aria-label={showPriceHistory === item.id ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
-                                  >
-                                    {showPriceHistory === item.id ? 'Ocultar' : 'Histórico'}
-                                  </button>
-                                </div>
-                              ) : (
-                                /* Input para registrar preço */
-                                <div className="flex items-center gap-2 w-full">
-                                  <label
-                                    htmlFor={`price-${item.id}`}
-                                    className="text-sm text-gray-600 whitespace-nowrap"
-                                  >
-                                    Preço:
-                                  </label>
-                                  <input
-                                    id={`price-${item.id}`}
-                                    type="text"
-                                    inputMode="decimal"
-                                    placeholder="0,00"
-                                    value={currentPrice}
-                                    onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        handleSavePrice(item.id);
-                                      }
-                                    }}
-                                    autoFocus={focusPriceItemId === item.id}
-                                    className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    aria-label={`Digite o preço de ${item.name}`}
-                                  />
-                                  <button
-                                    onClick={() => handleSavePrice(item.id)}
-                                    disabled={!currentPrice || savingPrice[item.id]}
-                                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                    aria-label={
-                                      savingPrice[item.id]
-                                        ? 'Salvando preço...'
-                                        : `Salvar preço de ${item.name}`
-                                    }
-                                  >
-                                    {savingPrice[item.id] ? '...' : 'OK'}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Botões de ação */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => startEdit(item)}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
-                                       transition-colors duration-150"
-                            aria-label={`Editar ${item.name}`}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteItem(item)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
-                                       transition-colors duration-150"
-                            aria-label={`Remover ${item.name}`}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                  {!isCompletedCollapsed && (
+                    <ul id="completed-items-list" className="mt-3 space-y-2" role="list" aria-label="Itens comprados">
+                      {items
+                        .filter((item) => item.completed === '1')
+                        .map((item) => renderListItem(item))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 

@@ -85,6 +85,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [newItemName, setNewItemName] = useState('');
   const [newItemQty, setNewItemQty] = useState('1');
   const [newItemUnit, setNewItemUnit] = useState('un');
+  const [newItemPrice, setNewItemPrice] = useState(''); // preço opcional ao adicionar
   const [addingItem, setAddingItem] = useState(false);
 
   // Estado de edição de item
@@ -97,6 +98,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
+  const [focusPriceItemId, setFocusPriceItemId] = useState<string | null>(null);
 
   // Estado de histórico de preços
   const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
@@ -208,11 +210,28 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         return;
       }
 
+      const newItem = data.item;
+
+      // Se um preço foi informado, salva já vinculado ao item
+      if (newItemPrice) {
+        const priceValue = parseFloat(newItemPrice.replace(',', '.'));
+        if (!isNaN(priceValue) && priceValue >= 0) {
+          const currentMonth = list?.month || new Date().toISOString().slice(0, 7);
+          await fetch('/api/prices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ item_id: newItem.id, value: priceValue, month: currentMonth }),
+          });
+          newItem.price = priceValue;
+        }
+      }
+
       // Adiciona item à lista localmente (evita refetch)
-      setItems((prev) => [...prev, data.item]);
+      setItems((prev) => [...prev, newItem]);
       setNewItemName('');
       setNewItemQty('1');
       setNewItemUnit('un');
+      setNewItemPrice('');
       showSuccess('Item adicionado com sucesso!');
     } catch {
       setError('Erro de conexão');
@@ -246,14 +265,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         );
         setError('Erro ao atualizar item');
       } else {
-        // Se desmarcou como comprado, limpa preço do estado
         if (newStatus === '0') {
+          // Desmarcou: limpa preço do estado
           setPriceInputs((prev) => ({ ...prev, [item.id]: '' }));
           setItems((prev) =>
             prev.map((i) =>
               i.id === item.id ? { ...i, price: null } : i
             )
           );
+        } else {
+          // Marcou como comprado: foca automaticamente no input de preço
+          setFocusPriceItemId(item.id);
+          setTimeout(() => setFocusPriceItemId(null), 500);
         }
       }
     } catch {
@@ -401,7 +424,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao salvar preço');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao salvar preço');
       }
 
       // Atualiza estado local com o preço
@@ -671,6 +695,28 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </div>
             </div>
 
+            {/* Preço opcional */}
+            <div className="flex items-center gap-3">
+              <label htmlFor="item-price" className="text-sm text-gray-600 whitespace-nowrap">
+                Preço (opcional)
+              </label>
+              <div className="relative w-36">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">R$</span>
+                <input
+                  id="item-price"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={newItemPrice}
+                  onChange={(e) => setNewItemPrice(e.target.value)}
+                  className="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-label="Preço do item (opcional)"
+                />
+              </div>
+              <span className="text-xs text-gray-400">Pode registrar depois também</span>
+            </div>
+
             <button
               type="submit"
               disabled={addingItem}
@@ -854,6 +900,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                                         handleSavePrice(item.id);
                                       }
                                     }}
+                                    autoFocus={focusPriceItemId === item.id}
                                     className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     aria-label={`Digite o preço de ${item.name}`}
                                   />

@@ -86,4 +86,29 @@ describe('POST /api/lists/[id]/duplicate', () => {
       budget: 300,
     });
   });
+
+  it('copia a categoria dos itens no clone (null p/ itens sem categoria)', async () => {
+    mock = createSupabaseMock({
+      lists: { data: originalList },
+      items: {
+        data: [
+          { id: 'item-1', list_id: LIST_ID, name: 'Maçã', quantity: 1, unit: 'un', category: 'hortifruti' },
+          { id: 'item-2', list_id: LIST_ID, name: 'Arroz', quantity: 2, unit: 'kg', category: null },
+        ],
+      },
+    });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await duplicateList(
+      makePostRequest({}),
+      { params: Promise.resolve({ id: LIST_ID }) }
+    );
+
+    expect(res.status).toBe(201);
+    // Primeiro insert é da lista clonada; segundo é o batch de itens
+    expect(mock.mocks.itemsInsert).toHaveBeenCalledWith([
+      expect.objectContaining({ name: 'Maçã', category: 'hortifruti', completed: '0' }),
+      expect.objectContaining({ name: 'Arroz', category: null, completed: '0' }),
+    ]);
+  });
 });

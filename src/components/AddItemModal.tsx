@@ -64,13 +64,24 @@ export function AddItemModal({
 
     try {
       setSubmitting(true);
-      await onAddItem({
+      // Só envia category se o usuário tocou no seletor: sem interação a coluna
+      // fica NULL no banco e o auto-guess pelo nome roda a cada render/renomeação.
+      const payload: {
+        name: string;
+        quantity: number;
+        unit: string;
+        price?: string;
+        category?: string;
+      } = {
         name: name.trim(),
         quantity: qty,
         unit,
         price: price.trim() || undefined,
-        category,
-      });
+      };
+      if (categoryTouched) {
+        payload.category = category;
+      }
+      await onAddItem(payload);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao adicionar item');

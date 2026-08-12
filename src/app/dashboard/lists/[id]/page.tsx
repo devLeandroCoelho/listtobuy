@@ -214,15 +214,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
 
     try {
+      // Só envia category se o usuário tocou no seletor: sem interação a coluna
+      // fica NULL no banco e o auto-guess pelo nome roda a cada render/renomeação.
+      const payload: Record<string, string | number> = {
+        name: newItemName.trim(),
+        quantity: qty,
+        unit: newItemUnit,
+      };
+      if (newItemCategoryTouched) {
+        payload.category = newItemCategory;
+      }
+
       const response = await fetch(`/api/lists/${id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newItemName.trim(),
-          quantity: qty,
-          unit: newItemUnit,
-          category: newItemCategory,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -283,15 +289,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     price?: string;
     category?: string;
   }) => {
+    // Só envia category se o modal informou (usuário tocou no seletor):
+    // sem interação a coluna fica NULL no banco e o auto-guess pelo nome roda.
+    const payload: { name: string; quantity: number; unit: string; category?: string } = {
+      name: data.name,
+      quantity: data.quantity,
+      unit: data.unit,
+    };
+    if (data.category !== undefined) {
+      payload.category = data.category;
+    }
+
     const response = await fetch(`/api/lists/${id}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: data.name,
-        quantity: data.quantity,
-        unit: data.unit,
-        category: data.category,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const resData = await response.json();

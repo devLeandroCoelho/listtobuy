@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
+import { AddItemModal } from '@/components/AddItemModal';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -102,6 +103,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Estado de histórico de preços
   const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
+
+  // Estado do Modal de Adição (Mobile FAB)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const router = useRouter();
   const supabase = createClient();
@@ -238,6 +242,47 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     } finally {
       setAddingItem(false);
     }
+  };
+
+  /** Handler auxiliar para adicionar item vindo do Modal (Mobile FAB) */
+  const handleAddItemFromModal = async (data: {
+    name: string;
+    quantity: number;
+    unit: string;
+    price?: string;
+  }) => {
+    const response = await fetch(`/api/lists/${id}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: data.name,
+        quantity: data.quantity,
+        unit: data.unit,
+      }),
+    });
+
+    const resData = await response.json();
+    if (!response.ok) {
+      throw new Error(resData.error || 'Erro ao adicionar item');
+    }
+
+    const newItem = resData.item;
+
+    if (data.price) {
+      const priceValue = parseFloat(data.price.replace(',', '.'));
+      if (!isNaN(priceValue) && priceValue >= 0) {
+        const currentMonth = list?.month || new Date().toISOString().slice(0, 7);
+        await fetch('/api/prices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_id: newItem.id, value: priceValue, month: currentMonth }),
+        });
+        newItem.price = priceValue;
+      }
+    }
+
+    setItems((prev) => [...prev, newItem]);
+    showSuccess('Item adicionado!');
   };
 
   /** Alterna status comprado/pendente de um item */
@@ -489,8 +534,22 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 pb-20 sm:pb-8">
+      {/* Sticky Header de Orçamento (Mobile) */}
+      <div className="sticky top-0 z-30 bg-blue-900 text-white px-4 py-2.5 shadow-md flex items-center justify-between text-xs sm:text-sm font-medium sm:hidden">
+        <div className="flex items-center gap-1.5 truncate">
+          <span>🛒</span>
+          <span className="font-bold truncate max-w-[120px]">{list.name}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span>Gasto: <strong className="text-green-300">{formatCurrency(totalSpent)}</strong></span>
+          {budget > 0 && (
+            <span>Resta: <strong className={remaining < 0 ? 'text-red-300' : 'text-blue-200'}>{formatCurrency(remaining)}</strong></span>
+          )}
+        </div>
+      </div>
+
+      {/* Header Padrão */}
       <header className="bg-white border-b border-gray-200" role="banner">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -628,8 +687,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
-        {/* Formulário de novo item */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        {/* Formulário de novo item (oculto no mobile muito pequeno para economizar scroll) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 hidden sm:block">
           <h2 className="text-lg font-semibold mb-4">Adicionar Item</h2>
 
           <form onSubmit={handleAddItem} className="space-y-4">
@@ -971,6 +1030,24 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
       </main>
+
+      {/* FAB - Floating Action Button (Mobile & Desktop Quick Add) */}
+      <button
+        onClick={() => setIsAddModalOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center text-2xl font-light transition-transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300"
+        aria-label="Adicionar novo item à lista"
+        title="Adicionar Novo Item"
+      >
+        ➕
+      </button>
+
+      {/* Modal de Adição */}
+      <AddItemModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddItem={handleAddItemFromModal}
+        unitOptions={UNIT_OPTIONS}
+      />
     </div>
   );
 }

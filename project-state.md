@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-11 (frontend-dev: autocomplete de sugestão de itens — PR #28 aberto)
+> Última atualização: 2026-08-11 (fim do dia — P4 e P7 concluídos; issues #23–#27 registradas no ROADMAP; próximo: fix mobile do autocomplete + P5)
 
 ---
 
@@ -104,11 +104,11 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | P1 | Registro de domínio próprio (`listtobuy.com.br`/`.com`/`.app` — todos livres hoje) | chefe | Decisão D6 | ⏸️ postergado (URL Vercel em uso); registrar quando houver tração |
 | P2 | Consulta formal de anterioridade INPI (classes 9/35/42) + registro de marca "LISTTOBUY" | copywriter/chefe | Decisão D6 | ⏸️ postergado; requisito antes de esforço de branding |
 | P3 | Teste de aceitação do nome com 5-10 usuários BR (pronúncia "ListToBuy", escrever, adivinhar função) | market-researcher | Rafael | ⏸️ postergado (opcional pré-lançamento) |
-| P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | 🔄 API pronta (PR #21) + **UI pronta (PR #28 — autocomplete no campo "Nome do item")** — aguardando review/merge |
-| P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | 🟡 em andamento — smoke test via API passou (11/08); falta teste de UX no navegador |
-| P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ não iniciado |
-| P7 | Env vars de **Preview** na Vercel (NEXT_PUBLIC_SUPABASE_*) | devops | CI/CD | 🔄 pendente — preview de PRs falha por falta das envs; produção OK |
-| P8 | Job de testes no CI (hoje só typecheck+lint+build) + suíte de testes | devops / qa-engineer | Qualidade | 🔄 pendente — lacuna identificada na auditoria do PR #18 |
+| P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (11/08)** — API (PR #21) + UI autocomplete (PR #28, issue #23) merged; deploy em prod; QA 13/13 + UI/UX aprovado com ressalvas (fix mobile pendente: campo espremido em telas <375px) |
+| P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | 🟡 em andamento — smoke test via API passou (11/08); falta teste de UX no navegador + Lighthouse (issue #24) |
+| P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ não iniciado — **aguardando decisão do chefe**: conta Stripe, dados fiscais, agora vs. postergar (issue #25) |
+| P7 | Env vars de **Preview** na Vercel (NEXT_PUBLIC_SUPABASE_*) | devops | CI/CD | ✅ **CONCLUÍDO (11/08)** — envs adicionadas ao ambiente Preview (issue #26, registrada e fechada) |
+| P8 | Job de testes no CI (hoje só typecheck+lint+build) + suíte de testes | devops / qa-engineer | Qualidade | 🟡 pendente — lacuna identificada na auditoria do PR #18 (issue #27) |
 
 ## 8. Sessões por Agente (task_id para continuidade)
 

@@ -208,7 +208,7 @@ export function ItemSuggestions({
   const hasOptions = isOpen && suggestions.length > 0;
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <input
         ref={inputRef}
         id={id}
@@ -252,7 +252,7 @@ export function ItemSuggestions({
                   aria-selected={isActive}
                   onMouseDown={(e) => e.preventDefault()} // mantém o foco no input
                   onClick={() => selectSuggestion(suggestion.name)}
-                  className={`cursor-pointer px-4 py-3 text-base ${
+                  className={`cursor-pointer px-4 py-3 text-base break-words ${
                     isActive ? 'bg-blue-50 text-blue-900' : 'text-gray-900'
                   }`}
                 >

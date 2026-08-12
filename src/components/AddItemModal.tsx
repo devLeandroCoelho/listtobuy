@@ -28,6 +28,9 @@ export function AddItemModal({
   const [unit, setUnit] = useState('un');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('outros');
+  // True quando o usuário escolheu a seção manualmente: o auto-guess pelo nome
+  // deixa de sobrescrever a escolha (ex.: "café" → mercearia, mas usuário quer Bebidas).
+  const [categoryTouched, setCategoryTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -78,9 +81,9 @@ export function AddItemModal({
 
   const handleNameChange = (val: string) => {
     setName(val);
-    const guessed = guessCategoryByName(val);
-    if (guessed !== 'outros') {
-      setCategory(guessed);
+    // Auto-guess só enquanto o usuário não escolheu a seção manualmente
+    if (!categoryTouched) {
+      setCategory(guessCategoryByName(val));
     }
   };
 
@@ -182,8 +185,12 @@ export function AddItemModal({
             <select
               id="modal-item-category"
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setCategoryTouched(true);
+              }}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              aria-describedby="modal-item-category-hint"
             >
               {CATEGORIES.map((cat) => (
                 <option key={cat.id} value={cat.id}>
@@ -191,6 +198,9 @@ export function AddItemModal({
                 </option>
               ))}
             </select>
+            <p id="modal-item-category-hint" className="text-xs text-gray-500 mt-1">
+              Sugerida automaticamente pelo nome do item — você pode trocar antes de salvar.
+            </p>
           </div>
 
           {/* Preço (opcional) */}

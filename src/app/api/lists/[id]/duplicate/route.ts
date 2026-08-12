@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { isValidMonth } from '@/lib/month';
 
 /**
  * POST /api/lists/[id]/duplicate — Duplica uma lista existente com todos os seus itens.
@@ -42,7 +43,13 @@ export async function POST(
 
   try {
     const body = await request.json();
-    if (body.month && /^\d{4}-\d{2}$/.test(body.month)) {
+    if (body.month) {
+      if (!isValidMonth(body.month)) {
+        return NextResponse.json(
+          { error: 'Mês inválido. Use o formato YYYY-MM com mês entre 01 e 12.' },
+          { status: 400 }
+        );
+      }
       month = body.month;
     }
     if (body.name && typeof body.name === 'string' && body.name.trim()) {

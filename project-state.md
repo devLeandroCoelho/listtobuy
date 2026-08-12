@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-12 (decisões do chefe aplicadas: Stripe P6 ⏸️ postergado até tração — D10; categorização #41 priorizada para o sprint 13/08 — D11; repo consolidado renomeado `frontend-lab` — D3; Anomalithic vitrine — D2; bloqueios do QA de 12/08 corrigidos no PR #47 — issue #46)
+> Última atualização: 2026-08-12 (backend #41: API persiste `category` em items — commit d66a902, branch `feat/item-categories-market-sections`; migração 005 commit 41c9c6c; Stripe P6 ⏸️ postergado até tração — D10; categorização #41 priorizada para o sprint 13/08 — D11; repo consolidado renomeado `frontend-lab` — D3; Anomalithic vitrine — D2; bloqueios do QA de 12/08 corrigidos no PR #47 — issue #46)
 
 ---
 
@@ -112,7 +112,7 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ **POSTERGADO até tração (decisão do chefe 12/08, D10)** — issue #25 permanece aberta; retomar quando houver usuários ativos (critério de retomada: ex. ~1.000 usuários ativos/mês ou 3 meses de crescimento contínuo) |
 | P7 | Env vars de **Preview** na Vercel (NEXT_PUBLIC_SUPABASE_*) | devops | CI/CD | ✅ **CONCLUÍDO (11/08)** — envs adicionadas ao ambiente Preview (issue #26, registrada e fechada) |
 | P8 | Job de testes no CI (hoje só typecheck+lint+build) + suíte de testes | devops / qa-engineer | Qualidade | ✅ **CONCLUÍDO (12/08)** — job vitest + 22 testes (lists-api 14 + suggestions-api 8) mergeados PR #32 — issue #27 encerrada |
-| P9 | **Categorização de itens por seção do mercado** (issue #41, criada 12/08) | backend-dev / frontend-dev / qa-engineer | Decisão D11 (12/08) | 🟡 **priorizada — sprint 13/08 (Onda 2)** |
+| P9 | **Categorização de itens por seção do mercado** (issue #41, criada 12/08) | backend-dev / frontend-dev / qa-engineer | Decisão D11 (12/08) | 🟡 em andamento — **backend CONCLUÍDO (12/08)**: migração 005 (coluna `category` nullable, commit 41c9c6c) + API create/update/clone persiste `category` (commit d66a902, 47 testes verdes); falta frontend (componente já envia `category` em AddItemModal, WIP d8ff132) + QA |
 | P10 | **Bloqueios do QA de 12/08** (issue #46): preço descartado silenciosamente, lint set-state-in-effect, race no +/-, mês inválido no clone | frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (12/08)** — PR #47 (branch fix/qa-46, aguardando review do dev-manager); 33 testes passando |
 
 ## 8. Sessões por Agente (task_id para continuidade)

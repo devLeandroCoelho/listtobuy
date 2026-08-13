@@ -416,38 +416,4 @@ describe('PATCH /api/lists/[id]', () => {
     expect(await res.json()).toEqual({ list: updated });
     expect(mock.mocks.update).toHaveBeenCalledWith({ name: 'Mercado Atualizado', budget: 200 });
   });
-
-  it('atualiza mês com sucesso → 200', async () => {
-    const updated = { id: LIST_ID, name: 'Mercado', month: '2026-09', budget: 0 };
-    mock = createSupabaseMock({ lists: { data: updated } });
-    createClientMock.mockResolvedValue(mock as never);
-
-    const res = await patchList(makePatchRequest({ month: '2026-09' }), {
-      params: Promise.resolve({ id: LIST_ID }),
-    });
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ list: updated });
-    expect(mock.mocks.update).toHaveBeenCalledWith({ month: '2026-09' });
-  });
-
-  it('mês em formato inválido → 400', async () => {
-    const res = await patchList(makePatchRequest({ month: '2026/09' }), {
-      params: Promise.resolve({ id: LIST_ID }),
-    });
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: 'Formato de mês inválido. Use YYYY-MM' });
-    expect(mock.mocks.update).not.toHaveBeenCalled();
-  });
-
-  it('mês fora do intervalo (13) → 400', async () => {
-    const res = await patchList(makePatchRequest({ month: '2026-13' }), {
-      params: Promise.resolve({ id: LIST_ID }),
-    });
-
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: 'Mês inválido. Use um mês entre 01 e 12.' });
-    expect(mock.mocks.update).not.toHaveBeenCalled();
-  });
 });

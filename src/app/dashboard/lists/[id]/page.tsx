@@ -122,8 +122,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado do Modal de Adição (Mobile FAB)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Estado de recolhimento da seção de Comprados
-  const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(false);
+  // Estado de recolhimento da seção de Comprados (colapsada por padrão)
+  const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
 
   const router = useRouter();
   const supabase = createClient();
@@ -1224,7 +1224,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="pt-4 border-t border-gray-100">
                   <button
                     onClick={() => setIsCompletedCollapsed((prev) => !prev)}
-                    className="w-full flex items-center justify-between py-2 text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors focus:outline-none"
+                    className="w-full flex items-center justify-between min-h-[44px] text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     aria-expanded={!isCompletedCollapsed}
                     aria-controls="completed-items-list"
                   >
@@ -1234,6 +1234,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     <span className="text-sm text-gray-500 flex items-center gap-1 font-normal">
                       {isCompletedCollapsed ? 'Mostrar' : 'Ocultar'}
                       <svg
+                        aria-hidden="true"
+                        focusable="false"
                         className={`w-4 h-4 transition-transform duration-200 ${
                           isCompletedCollapsed ? '' : 'rotate-180'
                         }`}
@@ -1246,13 +1248,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     </span>
                   </button>
 
-                  {!isCompletedCollapsed && (
-                    <ul id="completed-items-list" className="mt-3 space-y-2" role="list" aria-label="Itens comprados">
-                      {items
-                        .filter((item) => item.completed === '1')
-                        .map((item) => renderListItem(item))}
-                    </ul>
-                  )}
+                  <ul
+                    id="completed-items-list"
+                    hidden={isCompletedCollapsed}
+                    className="mt-3 space-y-2"
+                    role="list"
+                    aria-label="Itens comprados"
+                  >
+                    {items
+                      .filter((item) => item.completed === '1')
+                      .map((item) => renderListItem(item))}
+                  </ul>
                 </div>
               )}
             </>

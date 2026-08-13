@@ -4,10 +4,11 @@
  * BudgetSummary — Exibe as 3 visões de valor da lista:
  * - Orçamento total
  * - Total gasto (itens comprados com preço)
- * - Quanto falta gastar (ou estouro)
+ * - Quanto falta gastar ("Ainda tem para gastar") ou estouro ("Estourou em")
  *
  * Acessibilidade: WCAG 2.1 AA — aria-labels, contraste adequado,
- * navegação por teclado, sem animações piscantes.
+ * navegação por teclado, sem animações piscantes. O card de status usa
+ * aria-live="polite" para anunciar mudanças em tempo real.
  */
 
 interface BudgetSummaryProps {
@@ -37,7 +38,7 @@ export function BudgetSummary({ budget, totalSpent, remaining }: BudgetSummaryPr
 
   return (
     <div
-      className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
+      className="grid grid-cols-1 md:grid-cols-3 gap-4"
       role="region"
       aria-label="Resumo financeiro da lista"
     >
@@ -80,24 +81,27 @@ export function BudgetSummary({ budget, totalSpent, remaining }: BudgetSummaryPr
         </div>
       </div>
 
-      {/* Card: Ainda Tem para Gastar */}
+      {/* Card: Ainda Tem para Gastar / Estouro */}
       <div
         className={`bg-white p-6 rounded-xl shadow text-center ${
           isOverBudget ? 'ring-2 ring-red-300' : ''
         }`}
         aria-label={
           isOverBudget
-            ? `Estourou o orçamento em ${formatCurrency(Math.abs(remaining))}`
-            : `Ainda pode gastar: ${formatCurrency(remaining)}`
+            ? `Estourou em ${formatCurrency(Math.abs(remaining))}`
+            : `Ainda tem para gastar: ${formatCurrency(remaining)}`
         }
+        aria-live="polite"
       >
-        <div className="text-sm text-gray-600 mb-1">Ainda Tem</div>
+        <div className="text-sm text-gray-600 mb-1">
+          {isOverBudget ? 'Estourou em' : 'Ainda tem para gastar'}
+        </div>
         <div
           className={`text-2xl font-bold ${
             isOverBudget ? 'text-red-600' : 'text-purple-600'
           }`}
         >
-          {formatCurrency(remaining)}
+          {formatCurrency(isOverBudget ? Math.abs(remaining) : remaining)}
         </div>
         {isOverBudget && (
           <div className="text-xs text-red-500 mt-1" role="alert">

@@ -11,6 +11,7 @@ import { AddItemModal } from '@/components/AddItemModal';
 import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
 import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
 import { clampQuantity } from '@/lib/quantity';
+import { sumCompletedSpent } from '@/lib/budget';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -22,7 +23,8 @@ import { clampQuantity } from '@/lib/quantity';
  * - Edita e remove itens
  * - Registra preço por item comprado
  * - Exibe resumo: total de itens, comprados, pendentes
- * - BudgetSummary com orçamento, gasto e resta
+ * - BudgetSummary unificado no rodapé (colapsável): orçamento, gasto e
+ *   "ainda tem para gastar" / "estourou em" — atualiza em tempo real
  *
  * Acessibilidade (WCAG 2.1 AA):
  * - Todos os elementos interativos com aria-label
@@ -50,7 +52,7 @@ interface ItemData {
   completed: string; // "0" ou "1"
   created_at: string;
   updated_at: string;
-  price?: number | null; // preço registrado
+  price?: number | string | null; // preço registrado (number ou string, tolerado na soma)
   category?: string | null; // seção do mercado (null = não categorizado)
 }
 
@@ -124,6 +126,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Estado de recolhimento da seção de Comprados (colapsada por padrão)
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
+
+  // Estado de recolhimento do rodapé de Orçamento (colapsado por padrão)
+  const [isBudgetCollapsed, setIsBudgetCollapsed] = useState(true);
 
   const router = useRouter();
   const supabase = createClient();
@@ -613,10 +618,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const pendingItems = totalItems - completedItems;
   const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
-  // Cálculos do orçamento
-  const totalSpent = items
-    .filter((i) => i.completed === '1' && i.price)
-    .reduce((sum, i) => sum + (i.price || 0), 0);
+  // Cálculos do orçamento (#56): soma tolerante a price number OU string.
+  // Item comprado sem preço não soma, mas não quebra o cálculo.
+  const totalSpent = sumCompletedSpent(items);
   const budget = Number(list?.budget ?? 0);
   const remaining = budget - totalSpent;
 
@@ -783,9 +787,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     <div className="flex items-center gap-2">
                       <span
                         className="text-sm font-medium text-green-700"
-                        aria-label={`Preço registrado: ${formatCurrency(item.price)}`}
+                        aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
                       >
-                        {formatCurrency(item.price)}
+                        {formatCurrency(Number(item.price))}
                       </span>
                       <button
                         onClick={() => setShowPriceHistory(showPriceHistory === item.id ? null : item.id)}
@@ -895,17 +899,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 sm:pb-8">
-      {/* Sticky Header de Orçamento (Mobile) */}
+      {/* Sticky Header de Contexto (Mobile) — mostra a lista atual durante o
+          scroll. Os valores de orçamento ficam apenas no rodapé (#57). */}
       <div className="sticky top-0 z-30 bg-blue-900 text-white px-4 py-2.5 shadow-md flex items-center justify-between text-xs sm:text-sm font-medium sm:hidden">
         <div className="flex items-center gap-1.5 truncate">
-          <span>🛒</span>
+          <span aria-hidden="true">🛒</span>
           <span className="font-bold truncate max-w-[120px]">{list.name}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span>Gasto: <strong className="text-green-300">{formatCurrency(totalSpent)}</strong></span>
-          {budget > 0 && (
-            <span>Resta: <strong className={remaining < 0 ? 'text-red-300' : 'text-blue-200'}>{formatCurrency(remaining)}</strong></span>
-          )}
         </div>
       </div>
 
@@ -1024,28 +1023,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </div>
             </div>
           )}
-
-          {/* Orçamento */}
-          {budget > 0 && (
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-center">
-              <span className="text-sm text-gray-600">Orçamento: </span>
-              <span className="text-lg font-bold text-blue-700">
-                {formatCurrency(budget)}
-              </span>
-            </div>
-          )}
         </div>
-
-        {/* BudgetSummary */}
-        {budget > 0 && (
-          <div className="mb-6">
-            <BudgetSummary
-              budget={budget}
-              totalSpent={totalSpent}
-              remaining={remaining}
-            />
-          </div>
-        )}
 
         {/* Formulário de novo item (oculto no mobile muito pequeno para economizar scroll) */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 hidden sm:block">
@@ -1282,6 +1260,69 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
       </main>
+
+      {/* Rodapé de Orçamento (#57/#58): único local de orçamento da página,
+          accordion iniciando COLAPSADO (padrão do #54). O resumo do estado
+          ("Ainda tem para gastar" / "Estourou em") é visível no botão mesmo
+          fechado e atualiza em tempo real. */}
+      {budget > 0 && (
+        <footer
+          className="container mx-auto px-4 pb-8 max-w-2xl"
+          aria-label="Orçamento da lista"
+        >
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <button
+              onClick={() => setIsBudgetCollapsed((prev) => !prev)}
+              className="w-full flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 min-h-[44px] text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              aria-expanded={!isBudgetCollapsed}
+              aria-controls="budget-summary"
+            >
+              <span className="flex items-center gap-2 text-base">
+                <span aria-hidden="true">💰</span>
+                <span>Orçamento</span>
+                <span className="font-bold text-blue-700">
+                  {formatCurrency(budget)}
+                </span>
+              </span>
+              <span className="text-sm flex items-center gap-1 font-normal">
+                {remaining < 0 ? (
+                  <span className="text-red-600 font-medium">
+                    Estourou em {formatCurrency(Math.abs(remaining))}
+                  </span>
+                ) : (
+                  <span className="text-green-700 font-medium">
+                    Ainda tem para gastar: {formatCurrency(remaining)}
+                  </span>
+                )}
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    isBudgetCollapsed ? '' : 'rotate-180'
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </span>
+            </button>
+
+            <div
+              id="budget-summary"
+              hidden={isBudgetCollapsed}
+              className="border-t border-gray-100 p-4 sm:p-6"
+            >
+              <BudgetSummary
+                budget={budget}
+                totalSpent={totalSpent}
+                remaining={remaining}
+              />
+            </div>
+          </div>
+        </footer>
+      )}
 
       {/* FAB - Floating Action Button (Mobile & Desktop Quick Add) */}
       <button

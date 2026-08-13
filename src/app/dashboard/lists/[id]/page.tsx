@@ -216,6 +216,27 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     checkAuthAndLoad();
   }, [supabase, router, loadData]);
 
+  /** Salva novo orçamento da lista (PATCH /api/lists/[id]) */
+  const handleSaveBudget = useCallback(
+    async (newBudget: number) => {
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ budget: newBudget }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao atualizar orçamento');
+      }
+
+      const data = await response.json();
+      setList((prev) => (prev ? { ...prev, budget: String(data.list.budget) } : prev));
+      showSuccess('Orçamento atualizado');
+    },
+    [id, showSuccess]
+  );
+
   /** Sheet de orçamento: ao abrir, foca o painel (foco entra no sheet) */
   useEffect(() => {
     if (isBudgetSheetOpen) {
@@ -1226,7 +1247,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </div>
             <div className="overflow-y-auto p-4 sm:p-6 pt-0">
-              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={remaining} />
+              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={remaining} onSaveBudget={handleSaveBudget} />
             </div>
           </div>
         </div>

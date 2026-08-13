@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createClient } from '@/lib/supabase/server';
 import { POST as createList } from '@/app/api/lists/route';
-import { DELETE as deleteList, GET as getList } from '@/app/api/lists/[id]/route';
+import { DELETE as deleteList, GET as getList, PATCH as patchList } from '@/app/api/lists/[id]/route';
 import {
   createSupabaseMock,
   type SupabaseMock,
@@ -257,5 +257,97 @@ describe('DELETE /api/lists/[id]', () => {
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'delete failed' });
+  });
+});
+
+describe('PATCH /api/lists/[id]', () => {
+  let mock: SupabaseMock;
+  let createClientMock: Mock;
+
+  beforeEach(() => {
+    mock = createSupabaseMock();
+    createClientMock = vi.mocked(createClient);
+    createClientMock.mockResolvedValue(mock as never);
+  });
+
+  function makePatchRequest(body: unknown): Request {
+    return new Request(`${BASE_URL}/api/lists/${LIST_ID}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('atualiza orçamento com sucesso → 200', async () => {
+    const updated = { id: LIST_ID, name: 'Mercado', month: '2026-08', budget: 500 };
+    mock = createSupabaseMock({ lists: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ budget: 500 }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ list: updated });
+    expect(mock.mocks.update).toHaveBeenCalledWith({ budget: 500 });
+    expect(mock.mocks.updateEq).toHaveBeenCalledWith('id', LIST_ID);
+  });
+
+  it('sem autenticação → 401', async () => {
+    mock = createSupabaseMock({ user: null });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ budget: 500 }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'Não autenticado' });
+    expect(mock.mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('budget negativo → 400', async () => {
+    const res = await patchList(makePatchRequest({ budget: -10 }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Orçamento deve ser um número positivo' });
+    expect(mock.mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('lista não encontrada → 404', async () => {
+    mock = createSupabaseMock({ lists: { data: null, error: null } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ budget: 500 }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'Lista não encontrada' });
+    expect(mock.mocks.update).toHaveBeenCalled();
+  });
+
+  it('nenhum campo válido → 400', async () => {
+    const res = await patchList(makePatchRequest({}), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Nenhum campo para atualizar' });
+    expect(mock.mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('erro do banco ao atualizar → 500', async () => {
+    mock = createSupabaseMock({ lists: { error: { message: 'update failed' } } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ budget: 500 }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'update failed' });
   });
 });

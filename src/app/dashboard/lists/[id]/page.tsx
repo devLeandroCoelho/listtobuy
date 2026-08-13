@@ -1174,42 +1174,46 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </form>
 
-            {/* Chip de orçamento — trigger do sheet (só com orçamento definido) */}
-            {budget > 0 && (
-              <button
-                ref={budgetChipRef}
-                onClick={openBudgetSheet}
-                className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-                aria-expanded={isBudgetSheetOpen}
-                aria-controls="budget-sheet"
-                aria-haspopup="dialog"
-              >
-                <span aria-hidden="true">💰</span>
-                <span className={remaining < 0 ? 'text-red-700' : 'text-green-700'}>
-                  {remaining >= 0 && (
-                    <span className="hidden sm:inline text-xs font-medium">Ainda: </span>
-                  )}
-                  {formatCurrency(remaining)}
-                </span>
-                <span className="sr-only">
-                  {remaining < 0
+            {/* Chip de orçamento — trigger do sheet (sempre visível) */}
+            <button
+              ref={budgetChipRef}
+              onClick={openBudgetSheet}
+              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              aria-expanded={isBudgetSheetOpen}
+              aria-controls="budget-sheet"
+              aria-haspopup="dialog"
+            >
+              <span aria-hidden="true">💰</span>
+              <span className={budget > 0 ? (remaining < 0 ? 'text-red-700' : 'text-green-700') : 'text-gray-700'}>
+                {budget > 0 ? (
+                  <>
+                    {remaining >= 0 && <span className="hidden sm:inline text-xs font-medium">Ainda: </span>}
+                    {formatCurrency(remaining)}
+                  </>
+                ) : (
+                  <span className="text-xs font-medium">Definir orçamento</span>
+                )}
+              </span>
+              <span className="sr-only">
+                {budget > 0
+                  ? remaining < 0
                     ? `Estourou em ${formatCurrency(Math.abs(remaining))}`
-                    : `Ainda tem para gastar: ${formatCurrency(remaining)}`}
-                </span>
-                <svg
-                  aria-hidden="true"
-                  focusable="false"
-                  className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                    isBudgetSheetOpen ? 'rotate-180' : ''
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-            )}
+                    : `Ainda tem para gastar: ${formatCurrency(remaining)}`
+                  : 'Definir orçamento'}
+              </span>
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                  isBudgetSheetOpen ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
           </div>
         </div>
 

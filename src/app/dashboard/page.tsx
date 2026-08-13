@@ -17,6 +17,7 @@ interface ListData {
   name: string;
   month: string;
   budget: string;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [lists, setLists] = useState<ListData[]>([]);
   const [loading, setLoading] = useState(true);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [archiveFilter, setArchiveFilter] = useState<'all' | 'active' | 'archived'>('active');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const router = useRouter();
@@ -48,11 +50,18 @@ export default function DashboardPage() {
 
       setUser(userProfile);
 
-      const { data: userLists } = await supabase
+      let query = supabase
         .from('lists')
         .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .eq('user_id', userId);
+
+      if (archiveFilter === 'active') {
+        query = query.is('archived_at', null);
+      } else if (archiveFilter === 'archived') {
+        query = query.not('archived_at', 'is', null);
+      }
+
+      const { data: userLists } = await query.order('created_at', { ascending: false });
 
       setLists(userLists || []);
     } catch {
@@ -60,7 +69,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, archiveFilter]);
 
   useEffect(() => {
     const checkAuthAndLoad = async () => {
@@ -77,7 +86,7 @@ export default function DashboardPage() {
     };
 
     checkAuthAndLoad();
-  }, [supabase, router, loadData]);
+  }, [supabase, router, loadData, archiveFilter]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -128,6 +137,36 @@ export default function DashboardPage() {
     }
   };
 
+  const handleToggleArchive = async (list: ListData) => {
+    const isArchived = !!list.archived_at;
+    const confirmMessage = isArchived
+      ? `Desarquivar lista "${list.name}"? Ela voltará a aparecer na listagem principal.`
+      : `Arquivar lista "${list.name}"? Ela será ocultada da listagem principal.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      setError('');
+      const response = await fetch(`/api/lists/${list.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived_at: !isArchived }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Erro ao atualizar lista');
+        return;
+      }
+
+      setSuccess(isArchived ? 'Lista desarquivada' : 'Lista arquivada');
+      await loadData(user!.id);
+    } catch {
+      setError('Erro de conexão');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -175,81 +214,126 @@ export default function DashboardPage() {
 
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Minhas Listas</h1>
-          <Link
-            href="/dashboard/lists/new"
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium shadow-sm transition-colors"
-            aria-label="Criar nova lista de compras"
-          >
-            + Nova Lista
-          </Link>
+          <div className="flex items-center gap-2">
+            <select
+              value={archiveFilter}
+              onChange={(e) => setArchiveFilter(e.target.value as 'all' | 'active' | 'archived')}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="Filtrar listas por status"
+            >
+              <option value="active">Ativas</option>
+              <option value="archived">Arquivadas</option>
+              <option value="all">Todas</option>
+            </select>
+            <Link
+              href="/dashboard/lists/new"
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium shadow-sm transition-colors"
+              aria-label="Criar nova lista de compras"
+            >
+              + Nova Lista
+            </Link>
+          </div>
         </div>
 
         {lists.length === 0 ? (
           /* Empty state */
           <div className="text-center py-16 bg-white rounded-xl border border-gray-200 shadow-xs">
             <div className="text-6xl mb-4" aria-hidden="true">📝</div>
-            <h2 className="text-xl font-semibold mb-2">Nenhuma lista ainda</h2>
+            <h2 className="text-xl font-semibold mb-2">
+              {archiveFilter === 'archived' ? 'Nenhuma lista arquivada' : archiveFilter === 'active' ? 'Nenhuma lista ativa' : 'Nenhuma lista ainda'}
+            </h2>
             <p className="text-gray-600 mb-6">
-              Crie sua primeira lista de compras e comece a economizar.
+              {archiveFilter === 'archived' ? 'Quando arquivar uma lista, ela aparecerá aqui.' : 'Crie sua primeira lista de compras e comece a economizar.'}
             </p>
-            <Link
-              href="/dashboard/lists/new"
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-colors"
-              aria-label="Criar sua primeira lista de compras"
-            >
-              Criar Primeira Lista
-            </Link>
+            {archiveFilter !== 'archived' && (
+              <Link
+                href="/dashboard/lists/new"
+                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-colors"
+                aria-label="Criar sua primeira lista de compras"
+              >
+                Criar Primeira Lista
+              </Link>
+            )}
           </div>
         ) : (
           /* Grid de Listas */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {lists.map((list) => (
-              <div
-                key={list.id}
-                className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
+            {lists.map((list) => {
+              const isArchived = !!list.archived_at;
+              return (
+                <div
+                  key={list.id}
+                  className={`bg-white rounded-xl border p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between ${
+                    isArchived ? 'border-gray-300 opacity-75' : 'border-gray-200'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <Link
+                        href={`/dashboard/lists/${list.id}`}
+                        className={`text-lg font-bold transition-colors truncate ${
+                          isArchived ? 'text-gray-500' : 'text-gray-900 hover:text-blue-600'
+                        }`}
+                      >
+                        {list.name}
+                      </Link>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleToggleArchive(list)}
+                          className={`p-2 rounded-lg transition-colors ${
+                            isArchived
+                              ? 'text-green-600 hover:bg-green-50'
+                              : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
+                          }`}
+                          aria-label={isArchived ? `Desarquivar lista ${list.name}` : `Arquivar lista ${list.name}`}
+                          title={isArchived ? 'Desarquivar' : 'Arquivar'}
+                        >
+                          {isArchived ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 01-2-2V3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2M5 8a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2v-9a2 2 0 00-2-2" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDuplicateList(list)}
+                          disabled={duplicatingId === list.id}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shrink-0"
+                          aria-label={`Duplicar lista ${list.name}`}
+                          title="Duplicar esta lista"
+                        >
+                          {duplicatingId === list.id ? (
+                            <span className="text-xs">...</span>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <p className={`text-sm capitalize mb-4 ${isArchived ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {formatMonth(list.month)}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-sm">
+                    <span className={`font-medium ${isArchived ? 'text-gray-400' : 'text-gray-600'}`}>
+                      Orçamento: {Number(list.budget) > 0 ? `R$ ${Number(list.budget).toFixed(2)}` : 'Não definido'}
+                    </span>
                     <Link
                       href={`/dashboard/lists/${list.id}`}
-                      className="text-lg font-bold text-gray-900 hover:text-blue-600 transition-colors truncate"
+                      className={`font-semibold ${isArchived ? 'text-gray-400' : 'text-blue-600 hover:underline'}`}
                     >
-                      {list.name}
+                      Ver Lista →
                     </Link>
-                    <button
-                      onClick={() => handleDuplicateList(list)}
-                      disabled={duplicatingId === list.id}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shrink-0"
-                      aria-label={`Duplicar lista ${list.name}`}
-                      title="Duplicar esta lista"
-                    >
-                      {duplicatingId === list.id ? (
-                        <span className="text-xs">...</span>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                        </svg>
-                      )}
-                    </button>
                   </div>
-                  <p className="text-sm text-gray-500 capitalize mb-4">
-                    {formatMonth(list.month)}
-                  </p>
                 </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-sm">
-                  <span className="text-gray-600 font-medium">
-                    Orçamento: {Number(list.budget) > 0 ? `R$ ${Number(list.budget).toFixed(2)}` : 'Não definido'}
-                  </span>
-                  <Link
-                    href={`/dashboard/lists/${list.id}`}
-                    className="text-blue-600 font-semibold hover:underline"
-                  >
-                    Ver Lista →
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

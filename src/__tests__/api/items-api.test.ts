@@ -57,7 +57,7 @@ describe('POST /api/lists/[id]/items (category)', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ item: { ...created, completed: '0' } });
+    expect(await res.json()).toEqual({ item: { ...created, completed: '0', price: null } });
     expect(mock.mocks.itemsInsert).toHaveBeenCalledWith({
       list_id: LIST_ID,
       name: 'Maçã',
@@ -203,7 +203,7 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ item: { ...updated, completed: '0' } });
+    expect(await res.json()).toEqual({ item: { ...updated, completed: '0', price: null } });
     expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ category: 'laticinios' });
   });
 

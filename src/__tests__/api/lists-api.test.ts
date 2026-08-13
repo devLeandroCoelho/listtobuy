@@ -152,8 +152,8 @@ describe('GET /api/lists/[id]', () => {
       list: {
         ...list,
         items: [
-          { ...items[0], completed: '0' },
-          { ...items[1], completed: '1' },
+          { ...items[0], completed: '0', price: null },
+          { ...items[1], completed: '1', price: null },
         ],
       },
     });

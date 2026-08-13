@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   normalizeCompleted,
+  normalizePrice,
   serializeItem,
   serializeItems,
+  serializePriceRow,
+  serializePriceRows,
   splitByCompleted,
   type ItemLike,
 } from '@/lib/list-items';
@@ -44,11 +47,12 @@ describe('normalizeCompleted', () => {
 });
 
 describe('serializeItem', () => {
-  it('number 0 → completed "0" string e demais campos preservados', () => {
+  it('number 0 → completed "0" string, price null e demais campos preservados', () => {
     expect(serializeItem(item('i1', 'Arroz', 0))).toEqual({
       id: 'i1',
       name: 'Arroz',
       completed: '0',
+      price: null,
     });
     expect(typeof serializeItem(item('i1', 'Arroz', 0)).completed).toBe('string');
   });
@@ -64,6 +68,87 @@ describe('serializeItem', () => {
 
   it('sem completed → "0"', () => {
     expect(serializeItem(item('i5', 'Z')).completed).toBe('0');
+  });
+});
+
+describe('normalizePrice (contrato number | null, issue #56)', () => {
+  it('string "5.50" (PostgREST numeral alto) → number 5.5', () => {
+    expect(normalizePrice('5.50')).toBe(5.5);
+  });
+
+  it('number nativo (PostgREST baixa precisão) → mantém', () => {
+    expect(normalizePrice(5.5)).toBe(5.5);
+  });
+
+  it('zero é preço válido → 0', () => {
+    expect(normalizePrice(0)).toBe(0);
+    expect(normalizePrice('0.00')).toBe(0);
+  });
+
+  it('null/undefined → null (item sem preço)', () => {
+    expect(normalizePrice(null)).toBeNull();
+    expect(normalizePrice(undefined)).toBeNull();
+  });
+
+  it('string vazia / não-numérico → null (não vira NaN na soma)', () => {
+    expect(normalizePrice('')).toBeNull();
+    expect(normalizePrice('abc')).toBeNull();
+    expect(normalizePrice(NaN)).toBeNull();
+    expect(normalizePrice(Infinity)).toBeNull();
+  });
+});
+
+describe('serializeItem — contrato de price na fronteira (issue #56)', () => {
+  it('price string "5.50" → sai como number 5.5 na resposta', () => {
+    const serialized = serializeItem({ id: 'i1', name: 'Arroz', completed: 1, price: '5.50' });
+    expect(serialized.price).toBe(5.5);
+    expect(typeof serialized.price).toBe('number');
+  });
+
+  it('item comprado SEM preço → price: null (não quebra a soma)', () => {
+    const serialized = serializeItem({ id: 'i2', name: 'Feijão', completed: 1 });
+    expect(serialized.price).toBeNull();
+  });
+
+  it('REGRESSÃO #56: soma do orçamento funciona com itens serializados', () => {
+    // Caminho real: GET /api/lists/[id] → serializeItems + price merge (number)
+    const items = serializeItems([
+      { id: 'i1', name: 'Arroz', completed: 1, price: '5.50' }, // comprado, preço string do PostgREST
+      { id: 'i2', name: 'Feijão', completed: 1, price: 3.25 }, // comprado, preço number
+      { id: 'i3', name: 'Sal', completed: 0, price: '1.00' }, // pendente, não conta
+      { id: 'i4', name: 'Açúcar', completed: 1 }, // comprado SEM preço → null
+    ]);
+
+    // Mesma fórmula do frontend (src/app/dashboard/lists/[id]/page.tsx:617-619)
+    const totalSpent = items
+      .filter((i) => i.completed === '1' && i.price)
+      .reduce((sum, i) => sum + (i.price ?? 0), 0);
+
+    expect(totalSpent).toBe(8.75); // 5.5 + 3.25 — sem concatenação, sem quebrar no item sem preço
+    expect(typeof totalSpent).toBe('number');
+  });
+});
+
+describe('serializePriceRow / serializePriceRows (GET/POST /api/prices)', () => {
+  it('value string "5.50" → number 5.5', () => {
+    expect(serializePriceRow({ id: 'p1', item_id: 'i1', value: '5.50', month: '2026-08' })).toEqual({
+      id: 'p1',
+      item_id: 'i1',
+      value: 5.5,
+      month: '2026-08',
+    });
+  });
+
+  it('value number nativo → mantém', () => {
+    expect(serializePriceRow({ id: 'p1', value: 9.99 })).toEqual({ id: 'p1', value: 9.99 });
+  });
+
+  it('normaliza lista inteira e preserva demais campos', () => {
+    const rows = [
+      { id: 'p1', value: '5.50', month: '2026-08' },
+      { id: 'p2', value: 7.1, month: '2026-07' },
+    ];
+    expect(serializePriceRows(rows).map((r) => r.value)).toEqual([5.5, 7.1]);
   });
 });
 

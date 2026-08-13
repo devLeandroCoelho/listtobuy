@@ -8,6 +8,8 @@ import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
 import { AddItemModal } from '@/components/AddItemModal';
+import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
+import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
 import { clampQuantity } from '@/lib/quantity';
 
 /**
@@ -48,7 +50,8 @@ interface ItemData {
   completed: string; // "0" ou "1"
   created_at: string;
   updated_at: string;
-  price?: number | null; // preço registrado (pode vir do join com prices)
+  price?: number | null; // preço registrado
+  category?: string | null; // seção do mercado (null = não categorizado)
 }
 
 /** Formata mês para exibição (YYYY-MM → "Agosto de 2026") */
@@ -95,6 +98,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [newItemQty, setNewItemQty] = useState('1');
   const [newItemUnit, setNewItemUnit] = useState('un');
   const [newItemPrice, setNewItemPrice] = useState(''); // preço opcional ao adicionar
+  const [newItemCategory, setNewItemCategory] = useState('outros');
+  // Auto-guess de categoria pelo nome até o usuário escolher manualmente
+  const [newItemCategoryTouched, setNewItemCategoryTouched] = useState(false);
   const [addingItem, setAddingItem] = useState(false);
 
   // Estado de edição de item
@@ -102,6 +108,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [editName, setEditName] = useState('');
   const [editQty, setEditQty] = useState('');
   const [editUnit, setEditUnit] = useState('');
+  const [editCategory, setEditCategory] = useState(''); // '' = sem categoria (detectar)
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Estado de preço por item
@@ -207,14 +214,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
 
     try {
+      // Só envia category se o usuário tocou no seletor: sem interação a coluna
+      // fica NULL no banco e o auto-guess pelo nome roda a cada render/renomeação.
+      const payload: Record<string, string | number> = {
+        name: newItemName.trim(),
+        quantity: qty,
+        unit: newItemUnit,
+      };
+      if (newItemCategoryTouched) {
+        payload.category = newItemCategory;
+      }
+
       const response = await fetch(`/api/lists/${id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newItemName.trim(),
-          quantity: qty,
-          unit: newItemUnit,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -252,6 +266,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       setNewItemQty('1');
       setNewItemUnit('un');
       setNewItemPrice('');
+      setNewItemCategory('outros');
+      setNewItemCategoryTouched(false);
 
       if (priceError) {
         setError('Item adicionado, mas o preço não pôde ser salvo. Edite o item para tentar novamente.');
@@ -271,15 +287,23 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     quantity: number;
     unit: string;
     price?: string;
+    category?: string;
   }) => {
+    // Só envia category se o modal informou (usuário tocou no seletor):
+    // sem interação a coluna fica NULL no banco e o auto-guess pelo nome roda.
+    const payload: { name: string; quantity: number; unit: string; category?: string } = {
+      name: data.name,
+      quantity: data.quantity,
+      unit: data.unit,
+    };
+    if (data.category !== undefined) {
+      payload.category = data.category;
+    }
+
     const response = await fetch(`/api/lists/${id}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: data.name,
-        quantity: data.quantity,
-        unit: data.unit,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const resData = await response.json();
@@ -287,7 +311,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       throw new Error(resData.error || 'Erro ao adicionar item');
     }
 
-    const newItem = resData.item;
+    const newItem: ItemData = {
+      ...resData.item,
+      category: data.category || guessCategoryByName(data.name),
+    };
 
     let priceError = false;
     if (data.price) {
@@ -313,6 +340,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       setError('Item adicionado, mas o preço não pôde ser salvo. Ajuste-o depois na lista.');
     } else {
       showSuccess('Item adicionado!');
+    }
+  };
+
+  /** Auto-guess de seção ao digitar o nome no formulário inline */
+  const handleInlineNameChange = (val: string) => {
+    setNewItemName(val);
+    if (!newItemCategoryTouched) {
+      setNewItemCategory(guessCategoryByName(val));
     }
   };
 
@@ -399,6 +434,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditName(item.name);
     setEditQty(item.quantity);
     setEditUnit(item.unit);
+    setEditCategory(item.category ?? '');
   };
 
   /** Cancela edição */
@@ -407,6 +443,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditName('');
     setEditQty('');
     setEditUnit('');
+    setEditCategory('');
   };
 
   /** Ajuste rápido de quantidade (incremento ou decremento por toque) */
@@ -469,6 +506,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           name: editName.trim(),
           quantity: Number(editQty),
           unit: editUnit,
+          // '' → null: limpa a categoria persistida e passa a detectar pelo nome
+          category: editCategory === '' ? null : editCategory,
         }),
       });
 
@@ -585,6 +624,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const renderListItem = (item: ItemData) => {
     const isCompleted = item.completed === '1';
     const currentPrice = priceInputs[item.id] || '';
+    const cat = getCategoryById(resolveItemCategory(item));
 
     return (
       <li
@@ -597,58 +637,76 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       >
         {editingItemId === item.id ? (
           /* Modo de edição */
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-base
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              aria-label="Nome do item"
-              autoFocus
-            />
-            <input
-              type="number"
-              value={editQty}
-              onChange={(e) => setEditQty(e.target.value)}
-              min="0.01"
-              step="0.01"
-              className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              aria-label="Quantidade"
-            />
-            <select
-              value={editUnit}
-              onChange={(e) => setEditUnit(e.target.value)}
-              className="px-2 py-2 border border-gray-300 rounded-lg text-base
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              aria-label="Unidade"
-            >
-              {UNIT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => handleSaveEdit(item.id)}
-              disabled={savingEdit}
-              className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-              aria-label="Salvar alterações"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-            <button
-              onClick={cancelEdit}
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Cancelar edição"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-base
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                aria-label="Nome do item"
+                autoFocus
+              />
+              <button
+                onClick={() => handleSaveEdit(item.id)}
+                disabled={savingEdit}
+                className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                aria-label="Salvar alterações"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={cancelEdit}
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Cancelar edição"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="number"
+                value={editQty}
+                onChange={(e) => setEditQty(e.target.value)}
+                min="0.01"
+                step="0.01"
+                className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                aria-label="Quantidade"
+              />
+              <select
+                value={editUnit}
+                onChange={(e) => setEditUnit(e.target.value)}
+                className="px-2 py-2 border border-gray-300 rounded-lg text-base
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                aria-label="Unidade"
+              >
+                {UNIT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="flex-1 min-w-[180px] px-2 py-2 border border-gray-300 rounded-lg text-base
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                aria-label="Seção / Categoria no mercado"
+              >
+                <option value="">Sem categoria (detectar pelo nome)</option>
+                {CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         ) : (
           /* Modo de visualização */
@@ -688,6 +746,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       : 'text-gray-900'
                   }`}
                 >
+                  <span className="mr-1 text-xs opacity-75" aria-hidden="true">{cat.icon}</span>
                   {item.name}
                 </span>
 
@@ -1006,8 +1065,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <ItemSuggestions
                   id="item-name"
                   value={newItemName}
-                  onValueChange={setNewItemName}
-                  onSelect={setNewItemName}
+                  onValueChange={handleInlineNameChange}
+                  onSelect={handleInlineNameChange}
                   placeholder="Ex: Leite, Arroz, Feijão..."
                   required
                 />
@@ -1077,6 +1136,33 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               <span className="text-xs text-gray-400">Pode registrar depois também</span>
             </div>
 
+            {/* Seção / Categoria no mercado */}
+            <div>
+              <label htmlFor="item-category" className="block text-sm text-gray-600 mb-1">
+                Seção / Categoria no Mercado
+              </label>
+              <select
+                id="item-category"
+                value={newItemCategory}
+                onChange={(e) => {
+                  setNewItemCategory(e.target.value);
+                  setNewItemCategoryTouched(true);
+                }}
+                className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base
+                           focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                aria-describedby="item-category-hint"
+              >
+                {CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.name}
+                  </option>
+                ))}
+              </select>
+              <p id="item-category-hint" className="text-xs text-gray-500 mt-1">
+                Sugerida automaticamente pelo nome do item — você pode trocar antes de adicionar.
+              </p>
+            </div>
+
             <button
               type="submit"
               disabled={addingItem}
@@ -1116,11 +1202,20 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     🎉 Tudo comprado! Nenhum item pendente.
                   </div>
                 ) : (
-                  <ul className="space-y-2" role="list" aria-label="Itens pendentes">
-                    {items
-                      .filter((item) => item.completed === '0')
-                      .map((item) => renderListItem(item))}
-                  </ul>
+                  <div className="space-y-4">
+                    {groupItemsByCategory(
+                      items.filter((item) => item.completed === '0')
+                    ).map((group) => (
+                      <div key={group.categoryId} className="space-y-2">
+                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                          <span aria-hidden="true">{group.icon}</span> {group.name} ({group.items.length})
+                        </h3>
+                        <ul className="space-y-2" role="list" aria-label={`Itens pendentes de ${group.name}`}>
+                          {group.items.map((item) => renderListItem(item))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 

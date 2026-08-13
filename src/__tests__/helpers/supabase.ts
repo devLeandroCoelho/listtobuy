@@ -25,8 +25,8 @@ export interface SupabaseBehavior {
   user?: MockUser;
   /** Resultado de from('lists')...single() (POST e GET por id). Default: { data: null, error: null }. */
   lists?: { data?: unknown; error?: unknown };
-  /** Resultado das queries de items (GET lista e suggestions). Default: { data: [], error: null }. */
-  items?: { data?: unknown[] | null; error?: unknown };
+  /** Resultado de from('items')...single() (GET lista e suggestions). Default: { data: [], error: null }. */
+  items?: { data?: unknown; error?: unknown };
   /** Erro retornado por from('lists').delete().eq(). Default: null (sucesso). */
   deleteError?: unknown;
 }
@@ -44,6 +44,9 @@ export interface SupabaseMock {
     itemsSelect: Mock;
     itemsOrder: Mock;
     ilike: Mock;
+    itemsInsert: Mock;
+    itemsUpdate: Mock;
+    itemsDelete: Mock;
   };
 }
 
@@ -88,17 +91,44 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   const itemsOrder = vi.fn().mockReturnValue(itemsQuery);
   const itemsSelect = vi.fn().mockReturnValue({
     eq: vi.fn().mockReturnValue({
+      // Thenable: .eq() sozinho (ex.: duplicate) pode ser aguardado via await
+      then(resolve: (value: unknown) => void) {
+        resolve(itemsResult);
+      },
       order: vi.fn().mockResolvedValue(itemsResult),
     }),
     order: vi.fn().mockReturnValue({ limit: itemsOrder }),
   });
+
+  // Cadeias de escrita de `items` (rotas de item: create/update/delete)
+  const itemsSingle = vi.fn().mockResolvedValue(itemsResult);
+  const itemsInsert = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({ single: itemsSingle }),
+  });
+  const itemsUpdateSelect = vi.fn().mockReturnValue({ single: itemsSingle });
+  const itemsUpdateEq = vi.fn(() => ({ eq: itemsUpdateEq, select: itemsUpdateSelect }));
+  const itemsUpdate = vi.fn().mockReturnValue({ eq: itemsUpdateEq });
+  const itemsDeleteResult = { error: deleteError ?? null, count: 1 };
+  // Suporta encadeamento `.delete(...).eq(...).eq(...)` (thenable no fim)
+  const itemsDeleteEq: Mock = vi.fn(() => ({
+    eq: itemsDeleteEq,
+    then(resolve: (value: unknown) => void) {
+      resolve(itemsDeleteResult);
+    },
+  }));
+  const itemsDelete = vi.fn().mockReturnValue({ eq: itemsDeleteEq });
 
   const from = vi.fn((table: string) => {
     if (table === 'lists') {
       return { insert, select, delete: deleteList };
     }
     if (table === 'items') {
-      return { select: itemsSelect };
+      return {
+        select: itemsSelect,
+        insert: itemsInsert,
+        update: itemsUpdate,
+        delete: itemsDelete,
+      };
     }
     throw new Error(`Tabela não mockada no helper de testes: "${table}"`);
   });
@@ -116,6 +146,9 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
       itemsSelect,
       itemsOrder,
       ilike,
+      itemsInsert,
+      itemsUpdate,
+      itemsDelete,
     },
   };
 }

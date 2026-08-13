@@ -41,6 +41,7 @@ export const items = pgTable('items', {
   quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull().default('1'),
   unit: text('unit').notNull().default('un'),
   completed: numeric('completed').notNull().default('0'), // 0 = pendente, 1 = comprado
+  category: text('category'), // Categoria/seção do item (NULL = não categorizado); ex.: 'hortifruti'
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

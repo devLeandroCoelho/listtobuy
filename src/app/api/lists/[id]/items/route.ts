@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 /**
  * POST /api/lists/[id]/items — Adiciona um item a uma lista.
  *
- * Body: { name: string, quantity?: number, unit?: string }
+ * Body: { name: string, quantity?: number, unit?: string, category?: string | null }
+ *   - category: opcional. Id da categoria/seção (ex.: 'hortifruti') ou null p/ não categorizado.
  * Retorna: { item } (201) | { error }
  */
 
@@ -56,15 +57,36 @@ export async function POST(request: Request, { params }: Params) {
 
   const unitValue = unit && typeof unit === 'string' && unit.trim() ? unit.trim() : 'un';
 
+  // Categoria opcional: string não-vazia ou null (não categorizado).
+  // undefined → campo omitido do INSERT (coluna NULL no banco).
+  let categoryValue: string | null | undefined;
+  if (body.category !== undefined) {
+    if (body.category === null) {
+      categoryValue = null;
+    } else if (typeof body.category === 'string' && body.category.trim()) {
+      categoryValue = body.category.trim();
+    } else {
+      return NextResponse.json(
+        { error: 'Categoria deve ser um texto não vazio ou null' },
+        { status: 400 }
+      );
+    }
+  }
+
   // Insere item (RLS: auth.uid() = dono da lista do item)
+  const payload: Record<string, unknown> = {
+    list_id: id,
+    name: name.trim(),
+    quantity: quantityValue,
+    unit: unitValue,
+  };
+  if (categoryValue !== undefined) {
+    payload.category = categoryValue;
+  }
+
   const { data, error } = await supabase
     .from('items')
-    .insert({
-      list_id: id,
-      name: name.trim(),
-      quantity: quantityValue,
-      unit: unitValue,
-    })
+    .insert(payload)
     .select()
     .single();
 

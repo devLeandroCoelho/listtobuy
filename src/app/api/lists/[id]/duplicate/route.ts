@@ -91,6 +91,7 @@ export async function POST(
       name: item.name,
       quantity: item.quantity,
       unit: item.unit,
+      category: item.category ?? null, // Copia a categoria; NULL = não categorizado
       completed: '0', // Todos voltam a ficar pendentes
     }));
 

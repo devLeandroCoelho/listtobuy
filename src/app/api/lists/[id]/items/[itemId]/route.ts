@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/server';
  * PUT /api/lists/[id]/items/[itemId] — Edita um item (body parcial).
  * DELETE /api/lists/[id]/items/[itemId] — Exclui um item.
  *
- * PUT Body (parcial): { name?, quantity?, unit?, completed? }
+ * PUT Body (parcial): { name?, quantity?, unit?, completed?, category? }
+ *   - category: opcional. Id da categoria/seção (ex.: 'hortifruti') ou null p/ limpar (não categorizado).
  * PUT Retorna: { item } | { error }
  * DELETE Retorna: { success: true } | { error }
  */
@@ -66,6 +67,20 @@ export async function PUT(request: Request, { params }: Params) {
       );
     }
     updates.completed = completed;
+  }
+
+  // Categoria opcional: string não-vazia, null (limpa) ou undefined (não altera).
+  if (body.category !== undefined) {
+    if (body.category === null) {
+      updates.category = null;
+    } else if (typeof body.category === 'string' && body.category.trim()) {
+      updates.category = body.category.trim();
+    } else {
+      return NextResponse.json(
+        { error: 'Categoria deve ser um texto não vazio ou null' },
+        { status: 400 }
+      );
+    }
   }
 
   if (Object.keys(updates).length === 0) {

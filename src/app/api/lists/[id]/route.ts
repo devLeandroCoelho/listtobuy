@@ -93,6 +93,23 @@ export async function PATCH(request: Request, { params }: Params) {
     updates.name = nameValue.trim();
   }
 
+  if ('month' in body) {
+    const monthValue = body.month;
+    if (typeof monthValue !== 'string' || !monthValue.trim()) {
+      return NextResponse.json({ error: 'Mês deve ser uma string não vazia' }, { status: 400 });
+    }
+    const monthRegex = /^\d{4}-\d{2}$/;
+    if (!monthRegex.test(monthValue)) {
+      return NextResponse.json({ error: 'Formato de mês inválido. Use YYYY-MM' }, { status: 400 });
+    }
+    const [, m] = monthValue.split('-');
+    const monthNum = Number(m);
+    if (monthNum < 1 || monthNum > 12) {
+      return NextResponse.json({ error: 'Mês inválido. Use um mês entre 01 e 12.' }, { status: 400 });
+    }
+    updates.month = monthValue;
+  }
+
   if ('archived_at' in body) {
     const archivedValue = body.archived_at;
     if (archivedValue !== undefined && archivedValue !== null && typeof archivedValue !== 'boolean') {

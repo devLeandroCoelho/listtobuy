@@ -7,31 +7,40 @@ import Link from 'next/link';
 import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
-import { AddItemModal } from '@/components/AddItemModal';
 import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
 import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
-import { clampQuantity } from '@/lib/quantity';
 import { sumCompletedSpent } from '@/lib/budget';
+import { buildQuickAddPayload } from '@/lib/list-items';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
  *
- * Funcionalidades:
- * - Visualiza lista e seus itens
- * - Adiciona novos itens (com quantidade e unidade)
- * - Marca/desmarca itens como comprados
- * - Edita e remove itens
- * - Registra preço por item comprado
- * - Exibe resumo: total de itens, comprados, pendentes
- * - BudgetSummary unificado no rodapé (colapsável): orçamento, gasto e
- *   "ainda tem para gastar" / "estourou em" — atualiza em tempo real
+ * Layout estilo Listonic (redesign 13/08/2026):
+ * - Header sticky único com "← Voltar", nome + mês curto, miniStatus
+ *   "x de y · %" (D10) e resumo em accordion colapsado (#54, D2)
+ * - Linhas de item compactas: círculo 44px para marcar comprado, nome
+ *   truncado (riscado quando comprado), chip de quantidade (toca → edição
+ *   com foco no qty, D7), sub-linha de preço só em comprados e ações
+ *   editar/excluir de 44px — box único com dividers finos (D6)
+ * - Histórico de preços INLINE na linha do item (D5), single-open
+ * - Comprados em accordion colapsável no fundo, itens riscados (D8)
+ * - Barra de base FIXA (delta 13/08): quick-add com ItemSuggestions
+ *   (payload { name, quantity: 1, unit: 'un' }, sem price/category) +
+ *   chip de orçamento que abre um bottom-sheet para cima com o
+ *   BudgetSummary — único local de orçamento e única entrada de adição
+ *   em mobile E desktop (FAB e form inline removidos)
+ * - Marca/desmarca comprados, edita, remove e registra preço por item
+ *   comprado (o quick-add não pede preço; preço entra ao marcar comprado)
  *
  * Acessibilidade (WCAG 2.1 AA):
- * - Todos os elementos interativos com aria-label
- * - Navegação por teclado completa (Tab, Enter, Espaço)
- * - aria-live para mensagens de estado
- * - Contraste mínimo 4.5:1
- * - Fonte mínima 16px
+ * - Todos os elementos interativos com aria-label e alvo ≥ 44px
+ * - Navegação por teclado completa (Tab, Enter, Espaço, Esc fecha)
+ * - aria-pressed no círculo de comprado, aria-expanded/aria-controls nos
+ *   accordions (header, comprados) e no sheet de orçamento
+ * - Sheet: role="dialog" aria-modal, Tab trap, foco entra no painel e
+ *   volta ao chip ao fechar
+ * - aria-live: role="status" na barra (adição) e role="alert" (erro inline)
+ * - Contraste mínimo 4.5:1, fonte mínima 16px, sem animações piscantes
  */
 
 interface ListData {
@@ -63,6 +72,15 @@ function formatMonth(month: string): string {
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
+/** Formata mês curto para o header sticky (YYYY-MM → "Ago 2026") */
+const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function formatMonthShort(month: string): string {
+  const [year, m] = month.split('-');
+  const idx = Number(m) - 1;
+  return `${MONTHS_SHORT[idx] ?? ''} ${year}`;
+}
+
 /** Formata valor monetário */
 function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -88,21 +106,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Ref do estado de itens: permite calcular a quantidade mais recente em
-  // handlers de toques rápidos sem depender do closure de render
-  const itemsRef = useRef<ItemData[]>([]);
-  useEffect(() => {
-    itemsRef.current = items;
-  }, [items]);
-
-  // Estado do formulário de novo item
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemQty, setNewItemQty] = useState('1');
-  const [newItemUnit, setNewItemUnit] = useState('un');
-  const [newItemPrice, setNewItemPrice] = useState(''); // preço opcional ao adicionar
-  const [newItemCategory, setNewItemCategory] = useState('outros');
-  // Auto-guess de categoria pelo nome até o usuário escolher manualmente
-  const [newItemCategoryTouched, setNewItemCategoryTouched] = useState(false);
+  // Estado do quick-add na barra de base (estilo Listonic)
+  const [quickAddName, setQuickAddName] = useState('');
+  const [quickAddError, setQuickAddError] = useState('');
+  const [quickAddStatus, setQuickAddStatus] = useState('');
   const [addingItem, setAddingItem] = useState(false);
 
   // Estado de edição de item
@@ -111,6 +118,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [editQty, setEditQty] = useState('');
   const [editUnit, setEditUnit] = useState('');
   const [editCategory, setEditCategory] = useState(''); // '' = sem categoria (detectar)
+  // Campo que recebe foco ao abrir a edição: 'name' (lápis) ou 'qty' (chip de quantidade, D7)
+  const [editFocusField, setEditFocusField] = useState<'name' | 'qty'>('name');
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Estado de preço por item
@@ -121,14 +130,22 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado de histórico de preços
   const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
 
-  // Estado do Modal de Adição (Mobile FAB)
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Estado do sheet de orçamento (expande para cima a partir da barra)
+  const [isBudgetSheetOpen, setIsBudgetSheetOpen] = useState(false);
 
   // Estado de recolhimento da seção de Comprados (colapsada por padrão)
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
 
-  // Estado de recolhimento do rodapé de Orçamento (colapsado por padrão)
-  const [isBudgetCollapsed, setIsBudgetCollapsed] = useState(true);
+  // Estado de recolhimento do resumo no header sticky (colapsado por padrão)
+  const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(true);
+
+  // Refs p/ foco e scroll do painel de histórico inline (D5)
+  const historyToggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const historyPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Refs do chip de orçamento e do painel do sheet (foco restaurado/trap)
+  const budgetChipRef = useRef<HTMLButtonElement | null>(null);
+  const budgetSheetRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -199,86 +216,53 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     checkAuthAndLoad();
   }, [supabase, router, loadData]);
 
-  /** Adiciona novo item à lista */
-  const handleAddItem = async (e: React.FormEvent) => {
+  /** Sheet de orçamento: ao abrir, foca o painel (foco entra no sheet) */
+  useEffect(() => {
+    if (isBudgetSheetOpen) {
+      budgetSheetRef.current?.focus();
+    }
+  }, [isBudgetSheetOpen]);
+
+  /** Adiciona item via barra de base (quick-add estilo Listonic).
+   *  Payload mínimo: { name, quantity: 1, unit: 'un' } — SEM price/category
+   *  (coluna fica NULL → auto-guess pela categoria via resolveItemCategory). */
+  const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    const name = quickAddName.trim();
+
+    // Erro inline na própria barra (role="alert"), sem POST
+    if (!name) {
+      setQuickAddError('Digite o nome do item');
+      return;
+    }
+
     setAddingItem(true);
-    setError('');
-
-    if (!newItemName.trim()) {
-      setError('Digite o nome do item');
-      setAddingItem(false);
-      return;
-    }
-
-    const qty = Number(newItemQty);
-    if (isNaN(qty) || qty <= 0) {
-      setError('Quantidade deve ser maior que zero');
-      setAddingItem(false);
-      return;
-    }
 
     try {
-      // Só envia category se o usuário tocou no seletor: sem interação a coluna
-      // fica NULL no banco e o auto-guess pelo nome roda a cada render/renomeação.
-      const payload: Record<string, string | number> = {
-        name: newItemName.trim(),
-        quantity: qty,
-        unit: newItemUnit,
-      };
-      if (newItemCategoryTouched) {
-        payload.category = newItemCategory;
-      }
-
       const response = await fetch(`/api/lists/${id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildQuickAddPayload(name)),
       });
 
       const data = await response.json();
-
       if (!response.ok) {
         setError(data.error || 'Erro ao adicionar item');
-        setAddingItem(false);
         return;
       }
 
-      const newItem = data.item;
+      // Categoria via auto-guess local (mesmo padrão do fluxo do modal antigo)
+      const newItem: ItemData = {
+        ...data.item,
+        category: guessCategoryByName(name),
+      };
 
-      // Se um preço foi informado, salva já vinculado ao item
-      let priceError = false;
-      if (newItemPrice) {
-        const priceValue = parseFloat(newItemPrice.replace(',', '.'));
-        if (!isNaN(priceValue) && priceValue >= 0) {
-          const currentMonth = list?.month || new Date().toISOString().slice(0, 7);
-          const priceResponse = await fetch('/api/prices', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item_id: newItem.id, value: priceValue, month: currentMonth }),
-          });
-          if (priceResponse.ok) {
-            newItem.price = priceValue;
-          } else {
-            priceError = true;
-          }
-        }
-      }
-
-      // Adiciona item à lista localmente (evita refetch)
       setItems((prev) => [...prev, newItem]);
-      setNewItemName('');
-      setNewItemQty('1');
-      setNewItemUnit('un');
-      setNewItemPrice('');
-      setNewItemCategory('outros');
-      setNewItemCategoryTouched(false);
-
-      if (priceError) {
-        setError('Item adicionado, mas o preço não pôde ser salvo. Edite o item para tentar novamente.');
-      } else {
-        showSuccess('Item adicionado com sucesso!');
-      }
+      setQuickAddName('');
+      setQuickAddStatus(`${name} adicionado`);
+      setTimeout(() => setQuickAddStatus(''), 2500);
+      // Mantém o foco no input para adição em sequência
+      focusQuickAdd();
     } catch {
       setError('Erro de conexão');
     } finally {
@@ -286,73 +270,50 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  /** Handler auxiliar para adicionar item vindo do Modal (Mobile FAB) */
-  const handleAddItemFromModal = async (data: {
-    name: string;
-    quantity: number;
-    unit: string;
-    price?: string;
-    category?: string;
-  }) => {
-    // Só envia category se o modal informou (usuário tocou no seletor):
-    // sem interação a coluna fica NULL no banco e o auto-guess pelo nome roda.
-    const payload: { name: string; quantity: number; unit: string; category?: string } = {
-      name: data.name,
-      quantity: data.quantity,
-      unit: data.unit,
-    };
-    if (data.category !== undefined) {
-      payload.category = data.category;
-    }
-
-    const response = await fetch(`/api/lists/${id}/items`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const resData = await response.json();
-    if (!response.ok) {
-      throw new Error(resData.error || 'Erro ao adicionar item');
-    }
-
-    const newItem: ItemData = {
-      ...resData.item,
-      category: data.category || guessCategoryByName(data.name),
-    };
-
-    let priceError = false;
-    if (data.price) {
-      const priceValue = parseFloat(data.price.replace(',', '.'));
-      if (!isNaN(priceValue) && priceValue >= 0) {
-        const currentMonth = list?.month || new Date().toISOString().slice(0, 7);
-        const priceResponse = await fetch('/api/prices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ item_id: newItem.id, value: priceValue, month: currentMonth }),
-        });
-        if (priceResponse.ok) {
-          newItem.price = priceValue;
-        } else {
-          priceError = true;
-        }
-      }
-    }
-
-    setItems((prev) => [...prev, newItem]);
-
-    if (priceError) {
-      setError('Item adicionado, mas o preço não pôde ser salvo. Ajuste-o depois na lista.');
-    } else {
-      showSuccess('Item adicionado!');
-    }
+  /** Digitação no quick-add: limpa o erro inline da barra */
+  const handleQuickAddNameChange = (val: string) => {
+    setQuickAddName(val);
+    if (quickAddError) setQuickAddError('');
   };
 
-  /** Auto-guess de seção ao digitar o nome no formulário inline */
-  const handleInlineNameChange = (val: string) => {
-    setNewItemName(val);
-    if (!newItemCategoryTouched) {
-      setNewItemCategory(guessCategoryByName(val));
+  /** Devolve o foco ao input do quick-add (após adição) */
+  const focusQuickAdd = () => {
+    document.getElementById('quick-add-name')?.focus();
+  };
+
+  /** Abre o sheet de orçamento e foca o painel */
+  const openBudgetSheet = () => {
+    setIsBudgetSheetOpen(true);
+  };
+
+  /** Fecha o sheet e restaura o foco no chip de orçamento */
+  const closeBudgetSheet = () => {
+    setIsBudgetSheetOpen(false);
+    budgetChipRef.current?.focus();
+  };
+
+  /** Teclado no sheet: Esc fecha; Tab fica preso no painel (trap) */
+  const handleBudgetSheetKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeBudgetSheet();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+
+    const focusables = budgetSheetRef.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusables || focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
     }
   };
 
@@ -433,13 +394,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  /** Inicia edição de um item */
-  const startEdit = (item: ItemData) => {
+  /** Inicia edição de um item (field = campo que recebe foco ao abrir: 'name' ou 'qty') */
+  const startEdit = (item: ItemData, field: 'name' | 'qty' = 'name') => {
     setEditingItemId(item.id);
     setEditName(item.name);
     setEditQty(item.quantity);
     setEditUnit(item.unit);
     setEditCategory(item.category ?? '');
+    setEditFocusField(field);
   };
 
   /** Cancela edição */
@@ -451,46 +413,23 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditCategory('');
   };
 
-  /** Ajuste rápido de quantidade (incremento ou decremento por toque) */
-  const handleUpdateQuantity = async (item: ItemData, delta: number) => {
-    const latestItem = itemsRef.current.find((i) => i.id === item.id) ?? item;
-    const newQty = clampQuantity(latestItem.quantity, delta);
-
-    if (newQty === Number(latestItem.quantity)) return;
-
-    // Optimistic update na UI
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === item.id
-          ? { ...i, quantity: String(clampQuantity(i.quantity, delta)) }
-          : i
-      )
-    );
-
-    try {
-      const response = await fetch(`/api/lists/${id}/items/${item.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: item.name,
-          quantity: newQty,
-          unit: item.unit,
-        }),
-      });
-
-      if (!response.ok) {
-        // Reverte em caso de erro
-        setItems((prev) =>
-          prev.map((i) => (i.id === item.id ? { ...i, quantity: item.quantity } : i))
-        );
-        setError('Erro ao atualizar quantidade');
-      }
-    } catch {
-      setItems((prev) =>
-        prev.map((i) => (i.id === item.id ? { ...i, quantity: item.quantity } : i))
-      );
-      setError('Erro de conexão');
+  /** Alterna o histórico de preços inline do item (single-open) */
+  const togglePriceHistory = (itemId: string) => {
+    if (showPriceHistory === itemId) {
+      closePriceHistory(itemId);
+    } else {
+      setShowPriceHistory(itemId);
+      // Rola o painel para a área visível após o render (D5)
+      setTimeout(() => {
+        historyPanelRefs.current[itemId]?.scrollIntoView({ block: 'nearest' });
+      }, 0);
     }
+  };
+
+  /** Fecha o histórico e devolve o foco ao toggle (Esc ou botão Fechar) */
+  const closePriceHistory = (itemId: string) => {
+    setShowPriceHistory(null);
+    historyToggleRefs.current[itemId]?.focus();
   };
 
   /** Salva edição de item */
@@ -618,109 +557,115 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const pendingItems = totalItems - completedItems;
   const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
+  // miniStatus (D10): contador "x de y · %" no header sticky
+  const miniStatus =
+    totalItems > 0 ? `${completedItems} de ${totalItems} · ${progressPercent}%` : 'Sem itens ainda';
+
   // Cálculos do orçamento (#56): soma tolerante a price number OU string.
   // Item comprado sem preço não soma, mas não quebra o cálculo.
   const totalSpent = sumCompletedSpent(items);
   const budget = Number(list?.budget ?? 0);
   const remaining = budget - totalSpent;
 
-  /** Renderiza cada linha de item da lista (reutilizado nas seções de pendentes e comprados) */
+  /** Renderiza cada linha de item da lista (reutilizado nas seções de pendentes e comprados).
+   *  Layout compacto estilo Listonic (D6/D7/D5): círculo 44px para marcar comprado, nome truncado,
+   *  chip de quantidade (toca → edição com foco no qty), sub-linha de preço só quando comprado,
+   *  ações editar/excluir de 44px e histórico de preços inline. */
   const renderListItem = (item: ItemData) => {
     const isCompleted = item.completed === '1';
     const currentPrice = priceInputs[item.id] || '';
     const cat = getCategoryById(resolveItemCategory(item));
+    const isHistoryOpen = showPriceHistory === item.id;
 
     return (
       <li
         key={item.id}
-        className={`p-3 rounded-lg border transition-colors duration-150
-          ${isCompleted
-            ? 'bg-green-50/70 border-green-200'
-            : 'bg-white border-gray-200 hover:bg-gray-50'
-          }`}
+        className={`rounded-lg transition-colors duration-150
+          ${isCompleted ? 'bg-green-50/40' : 'hover:bg-gray-50'}`}
       >
-        {editingItemId === item.id ? (
-          /* Modo de edição */
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-base
-                           focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                aria-label="Nome do item"
-                autoFocus
-              />
-              <button
-                onClick={() => handleSaveEdit(item.id)}
-                disabled={savingEdit}
-                className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                aria-label="Salvar alterações"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-              <button
-                onClick={cancelEdit}
-                className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Cancelar edição"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+        <div className="flex items-start gap-2 px-1.5 sm:px-2 py-1.5">
+          {editingItemId === item.id ? (
+            /* Modo de edição (compacto) */
+            <div className="flex-1 min-w-0 p-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-label="Nome do item"
+                  autoFocus={editFocusField !== 'qty'}
+                />
+                <button
+                  onClick={() => handleSaveEdit(item.id)}
+                  disabled={savingEdit}
+                  className="w-11 h-11 shrink-0 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-label="Salvar alterações"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-label="Cancelar edição"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  value={editQty}
+                  onChange={(e) => setEditQty(e.target.value)}
+                  min="0.01"
+                  step="0.01"
+                  className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  aria-label="Quantidade"
+                  autoFocus={editFocusField === 'qty'}
+                />
+                <select
+                  value={editUnit}
+                  onChange={(e) => setEditUnit(e.target.value)}
+                  className="px-2 py-2 border border-gray-300 rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  aria-label="Unidade"
+                >
+                  {UNIT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  className="flex-1 min-w-[180px] px-2 py-2 border border-gray-300 rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  aria-label="Seção / Categoria no mercado"
+                >
+                  <option value="">Sem categoria (detectar pelo nome)</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="number"
-                value={editQty}
-                onChange={(e) => setEditQty(e.target.value)}
-                min="0.01"
-                step="0.01"
-                className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
-                           focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                aria-label="Quantidade"
-              />
-              <select
-                value={editUnit}
-                onChange={(e) => setEditUnit(e.target.value)}
-                className="px-2 py-2 border border-gray-300 rounded-lg text-base
-                           focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                aria-label="Unidade"
-              >
-                {UNIT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={editCategory}
-                onChange={(e) => setEditCategory(e.target.value)}
-                className="flex-1 min-w-[180px] px-2 py-2 border border-gray-300 rounded-lg text-base
-                           focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                aria-label="Seção / Categoria no mercado"
-              >
-                <option value="">Sem categoria (detectar pelo nome)</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : (
-          /* Modo de visualização */
-          <div className="flex items-start gap-3">
-            {/* Checkbox de comprado */}
-            <div className="pt-1">
+          ) : (
+            <>
+              {/* Círculo de marcar comprado — alvo 44px (D6) */}
               <button
                 onClick={() => handleToggleComplete(item)}
-                className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center
+                className={`shrink-0 w-11 h-11 rounded-full border-2 flex items-center justify-center
                   transition-colors duration-150
+                  focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2
                   ${isCompleted
                     ? 'bg-green-500 border-green-500 text-white'
                     : 'border-gray-300 hover:border-green-500'
@@ -733,139 +678,158 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 aria-pressed={isCompleted}
               >
                 {isCompleted && (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
               </button>
-            </div>
 
-            {/* Informações do item */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={`text-base font-medium truncate ${
-                    isCompleted
-                      ? 'line-through text-gray-500'
-                      : 'text-gray-900'
-                  }`}
-                >
-                  <span className="mr-1 text-xs opacity-75" aria-hidden="true">{cat.icon}</span>
-                  {item.name}
-                </span>
-
-                {/* Controles de quantidade (+/-) */}
-                <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg p-0.5 shrink-0">
-                  <button
-                    onClick={() => handleUpdateQuantity(item, -1)}
-                    disabled={Number(item.quantity) <= 1}
-                    className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded text-sm font-bold disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-                    aria-label={`Diminuir quantidade de ${item.name}`}
-                    title="Diminuir quantidade"
+              {/* Nome + chip de quantidade + sub-linha de preço */}
+              <div className="flex-1 min-w-0 py-0.5">
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className={`flex-1 min-w-0 truncate text-base font-medium ${
+                      isCompleted ? 'line-through text-gray-500' : 'text-gray-900'
+                    }`}
                   >
-                    -
-                  </button>
-                  <span className="text-xs font-semibold text-gray-800 min-w-[32px] text-center px-0.5">
-                    {item.quantity} {item.unit}
+                    <span className="mr-1 text-xs opacity-75" aria-hidden="true">{cat.icon}</span>
+                    {item.name}
                   </span>
+                  {/* Chip de quantidade → abre a edição com foco no campo qty (D7) */}
                   <button
-                    onClick={() => handleUpdateQuantity(item, 1)}
-                    className="w-7 h-7 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded text-sm font-bold transition-colors"
-                    aria-label={`Aumentar quantidade de ${item.name}`}
-                    title="Aumentar quantidade"
+                    onClick={() => startEdit(item, 'qty')}
+                    className="shrink-0 min-h-11 -my-1.5 px-1.5 flex items-center rounded-lg
+                               text-sm font-semibold text-gray-700 hover:bg-gray-100
+                               focus-visible:ring-2 focus-visible:ring-blue-500"
+                    aria-label={`Quantidade ${item.quantity} ${item.unit}; toque para editar ${item.name}`}
                   >
-                    +
+                    {item.quantity} {item.unit}
                   </button>
                 </div>
+
+                {/* Sub-linha de preço — apenas quando comprado */}
+                {isCompleted && (
+                  <div className="flex items-center gap-2 mt-0.5 min-h-11">
+                    {item.price != null ? (
+                      <>
+                        <span
+                          className="text-sm font-medium text-green-700"
+                          aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
+                        >
+                          {formatCurrency(Number(item.price))}
+                        </span>
+                        <button
+                          ref={(el) => {
+                            historyToggleRefs.current[item.id] = el;
+                          }}
+                          onClick={() => togglePriceHistory(item.id)}
+                          className="min-h-11 -my-1.5 px-1.5 text-xs font-medium text-blue-600 underline rounded-lg
+                                     hover:text-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500"
+                          aria-expanded={isHistoryOpen}
+                          aria-controls={`price-history-${item.id}`}
+                          aria-label={isHistoryOpen ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
+                        >
+                          {isHistoryOpen ? 'Ocultar' : 'Histórico'}
+                        </button>
+                      </>
+                    ) : (
+                      /* Input de preço para registrar (compacto) */
+                      <div className="flex items-center gap-2 w-full">
+                        <label
+                          htmlFor={`price-${item.id}`}
+                          className="text-sm text-gray-600 whitespace-nowrap"
+                        >
+                          Preço:
+                        </label>
+                        <input
+                          id={`price-${item.id}`}
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          value={currentPrice}
+                          onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSavePrice(item.id);
+                            }
+                          }}
+                          autoFocus={focusPriceItemId === item.id}
+                          className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          aria-label={`Digite o preço de ${item.name}`}
+                        />
+                        <button
+                          onClick={() => handleSavePrice(item.id)}
+                          disabled={!currentPrice || savingPrice[item.id]}
+                          className="min-h-11 -my-1.5 px-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          aria-label={
+                            savingPrice[item.id]
+                              ? 'Salvando preço...'
+                              : `Salvar preço de ${item.name}`
+                          }
+                        >
+                          {savingPrice[item.id] ? '...' : 'OK'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Seção de preço — aparece apenas quando item está comprado */}
-              {isCompleted && (
-                <div className="mt-2 flex items-center gap-2">
-                  {item.price != null ? (
-                    /* Preço já registrado */
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="text-sm font-medium text-green-700"
-                        aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
-                      >
-                        {formatCurrency(Number(item.price))}
-                      </span>
-                      <button
-                        onClick={() => setShowPriceHistory(showPriceHistory === item.id ? null : item.id)}
-                        className="text-xs text-blue-600 hover:text-blue-800 underline"
-                        aria-label={showPriceHistory === item.id ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
-                      >
-                        {showPriceHistory === item.id ? 'Ocultar' : 'Histórico'}
-                      </button>
-                    </div>
-                  ) : (
-                    /* Input para registrar preço */
-                    <div className="flex items-center gap-2 w-full">
-                      <label
-                        htmlFor={`price-${item.id}`}
-                        className="text-sm text-gray-600 whitespace-nowrap"
-                      >
-                        Preço:
-                      </label>
-                      <input
-                        id={`price-${item.id}`}
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="0,00"
-                        value={currentPrice}
-                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleSavePrice(item.id);
-                          }
-                        }}
-                        autoFocus={focusPriceItemId === item.id}
-                        className="w-24 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        aria-label={`Digite o preço de ${item.name}`}
-                      />
-                      <button
-                        onClick={() => handleSavePrice(item.id)}
-                        disabled={!currentPrice || savingPrice[item.id]}
-                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        aria-label={
-                          savingPrice[item.id]
-                            ? 'Salvando preço...'
-                            : `Salvar preço de ${item.name}`
-                        }
-                      >
-                        {savingPrice[item.id] ? '...' : 'OK'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              {/* Ações secundárias — discretas, alvo 44px */}
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button
+                  onClick={() => startEdit(item, 'name')}
+                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
+                             transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-label={`Editar ${item.name}`}
+                >
+                  <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleDeleteItem(item)}
+                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
+                             transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-label={`Remover ${item.name}`}
+                >
+                  <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
 
-            {/* Botões de ação */}
-            <div className="flex items-center gap-1">
+        {/* Painel do histórico de preços inline (D5) */}
+        {isHistoryOpen && (
+          <div
+            ref={(el) => {
+              historyPanelRefs.current[item.id] = el;
+            }}
+            id={`price-history-${item.id}`}
+            className="mx-1.5 sm:mx-2 mb-1.5 rounded-lg border border-gray-200 bg-gray-50/80 p-3"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                closePriceHistory(item.id);
+              }
+            }}
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className="text-sm font-semibold text-gray-700">📊 Histórico — {item.name}</p>
               <button
-                onClick={() => startEdit(item)}
-                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
-                           transition-colors duration-150"
-                aria-label={`Editar ${item.name}`}
+                onClick={() => closePriceHistory(item.id)}
+                className="min-h-11 -my-1.5 px-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg
+                           focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar histórico de preços"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              <button
-                onClick={() => handleDeleteItem(item)}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
-                           transition-colors duration-150"
-                aria-label={`Remover ${item.name}`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                Fechar
               </button>
             </div>
+            <PriceHistory itemId={item.id} itemName={item.name} />
           </div>
         )}
       </li>
@@ -898,37 +862,133 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 sm:pb-8">
-      {/* Sticky Header de Contexto (Mobile) — mostra a lista atual durante o
-          scroll. Os valores de orçamento ficam apenas no rodapé (#57). */}
-      <div className="sticky top-0 z-30 bg-blue-900 text-white px-4 py-2.5 shadow-md flex items-center justify-between text-xs sm:text-sm font-medium sm:hidden">
-        <div className="flex items-center gap-1.5 truncate">
-          <span aria-hidden="true">🛒</span>
-          <span className="font-bold truncate max-w-[120px]">{list.name}</span>
-        </div>
-      </div>
-
-      {/* Header Padrão */}
-      <header className="bg-white border-b border-gray-200" role="banner">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl" aria-hidden="true">🛒</span>
-            <span className="text-xl font-bold">ListToBuy</span>
-          </div>
-          <nav aria-label="Navegação do usuário">
+    <div className="min-h-screen bg-gray-50 pb-32 sm:pb-24">
+      {/* Header sticky único (D1/D2): "← Voltar", nome + mês curto, trigger do resumo,
+          excluir e miniStatus "x de y · %" (D10). Resumo vira accordion colapsado por
+          padrão (padrão #54) — contagem/progresso/data ficam SÓ aqui (redundância zero). */}
+      <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm" role="banner">
+        <div className="mx-auto max-w-2xl px-4">
+          {/* Linha 1 */}
+          <div className="flex items-center justify-between gap-2 min-h-14">
             <Link
               href="/dashboard"
-              className="text-gray-600 hover:text-gray-900 text-base"
-              aria-label="Voltar para o painel"
+              className="min-h-11 flex items-center gap-1 text-gray-600 hover:text-gray-900 text-base shrink-0"
+              aria-label="Voltar ao painel"
             >
               ← Voltar
             </Link>
-          </nav>
+            <div className="flex-1 min-w-0 text-center">
+              <h1 className="text-lg font-bold text-gray-900 truncate">
+                {list.name}
+                <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
+              </h1>
+              <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
+                {miniStatus}
+              </p>
+            </div>
+            <div className="flex items-center shrink-0">
+              <button
+                onClick={() => setIsSummaryCollapsed((prev) => !prev)}
+                className="hidden sm:flex w-11 h-11 items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-expanded={!isSummaryCollapsed}
+                aria-controls="list-summary"
+                aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
+              >
+                <svg
+                  aria-hidden="true"
+                  focusable="false"
+                  className={`w-4 h-4 transition-transform duration-200 ${isSummaryCollapsed ? '' : 'rotate-180'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={handleDeleteList}
+                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label={`Excluir lista ${list.name}`}
+                title="Excluir lista"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Linha 2 (mobile): mês curto + miniStatus + chevron */}
+          <div className="sm:hidden flex items-center gap-2 min-h-11 border-t border-gray-100">
+            <button
+              onClick={() => setIsSummaryCollapsed((prev) => !prev)}
+              className="flex-1 min-h-11 flex items-center gap-2 text-left text-sm text-gray-600 hover:text-gray-900 transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500"
+              aria-expanded={!isSummaryCollapsed}
+              aria-controls="list-summary"
+              aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
+            >
+              <span aria-hidden="true">📅</span>
+              <span>{formatMonthShort(list.month)}</span>
+              <span className="ml-auto text-xs font-semibold text-blue-700" aria-live="polite">
+                {miniStatus}
+              </span>
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isSummaryCollapsed ? '' : 'rotate-180'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Linha 3: resumo colapsável (accordion #54) */}
+          <div id="list-summary" hidden={isSummaryCollapsed} className="border-t border-gray-100 py-4">
+            <p className="text-sm text-gray-600 mb-3">{formatMonth(list.month)}</p>
+            <div className="grid grid-cols-3 gap-3 text-center" role="region" aria-label="Resumo da lista">
+              <div>
+                <div className="text-lg font-bold text-gray-900" aria-label={`${totalItems} itens no total`}>
+                  {totalItems}
+                </div>
+                <div className="text-xs text-gray-600">Total</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-green-700" aria-label={`${completedItems} itens comprados`}>
+                  {completedItems}
+                </div>
+                <div className="text-xs text-gray-600">Comprados</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-amber-700" aria-label={`${pendingItems} itens pendentes`}>
+                  {pendingItems}
+                </div>
+                <div className="text-xs text-gray-600">Pendentes</div>
+              </div>
+            </div>
+            {totalItems > 0 && (
+              <div
+                className="mt-3 h-1.5 bg-gray-200 rounded-full overflow-hidden"
+                role="progressbar"
+                aria-valuenow={progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Progresso da compra: ${progressPercent}%`}
+              >
+                <div
+                  className="h-full bg-green-500 rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Conteúdo principal */}
-      <main className="container mx-auto px-4 py-8 max-w-2xl" role="main">
+      <main className="container mx-auto px-4 py-6 max-w-2xl" role="main">
         {/* Mensagens de estado */}
         {error && (
           <div
@@ -957,216 +1017,25 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         )}
 
-        {/* Cabeçalho da lista */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{list.name}</h1>
-              <p className="text-gray-600 text-base mt-1">
-                {formatMonth(list.month)}
-              </p>
-            </div>
-            <button
-              onClick={handleDeleteList}
-              className="p-2 text-gray-400 hover:text-red-600 rounded-lg
-                         hover:bg-red-50 transition-colors duration-150"
-              aria-label={`Excluir lista ${list.name}`}
-              title="Excluir lista"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+        {/* Cabeçalho da lista removido: nome/excluir/contagem/progresso/data
+            agora vivem no header sticky (D1/D2/D10) — redundância zero. */}
 
-          {/* Resumo */}
-          <div className="grid grid-cols-3 gap-4 text-center" role="region" aria-label="Resumo da lista">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-gray-900" aria-label={`${totalItems} itens no total`}>
-                {totalItems}
-              </div>
-              <div className="text-sm text-gray-600">Total</div>
-            </div>
-            <div className="bg-green-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-green-700" aria-label={`${completedItems} itens comprados`}>
-                {completedItems}
-              </div>
-              <div className="text-sm text-gray-600">Comprados</div>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-3">
-              <div className="text-2xl font-bold text-amber-700" aria-label={`${pendingItems} itens pendentes`}>
-                {pendingItems}
-              </div>
-              <div className="text-sm text-gray-600">Pendentes</div>
-            </div>
-          </div>
+        {/* Formulário inline desktop removido (delta 13/08): a adição agora é
+            pela barra de base fixa (quick-add com ItemSuggestions) — entrada
+            única de itens em mobile E desktop. */}
 
-          {/* Barra de progresso */}
-          {totalItems > 0 && (
-            <div className="mt-4">
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>Progresso</span>
-                <span aria-label={`${progressPercent} por cento completo`}>{progressPercent}%</span>
-              </div>
-              <div
-                className="h-2 bg-gray-200 rounded-full overflow-hidden"
-                role="progressbar"
-                aria-valuenow={progressPercent}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Progresso da compra: ${progressPercent}%`}
-              >
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all duration-300"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Formulário de novo item (oculto no mobile muito pequeno para economizar scroll) */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 hidden sm:block">
-          <h2 className="text-lg font-semibold mb-4">Adicionar Item</h2>
-
-          <form onSubmit={handleAddItem} className="space-y-4">
-            {/* Linha responsiva: no mobile (< 640px) o campo de nome ocupa a
-                largura total em linha própria e quantidade/unidade ficam lado a
-                lado — evita o campo espremido em viewports 320–375px. Em telas
-                >= 640px mantém o layout original de três colunas. */}
-            <div className="flex flex-col gap-3 sm:flex-row">
-              {/* Nome do item (com autocomplete de sugestões) */}
-              <div className="w-full sm:flex-1 sm:min-w-0">
-                <label htmlFor="item-name" className="sr-only">
-                  Nome do item
-                </label>
-                <ItemSuggestions
-                  id="item-name"
-                  value={newItemName}
-                  onValueChange={handleInlineNameChange}
-                  onSelect={handleInlineNameChange}
-                  placeholder="Ex: Leite, Arroz, Feijão..."
-                  required
-                />
-              </div>
-
-              {/* Quantidade + Unidade — lado a lado; cabem juntas em 320px */}
-              <div className="flex gap-3 shrink-0">
-                <div className="w-24">
-                  <label htmlFor="item-qty" className="sr-only">
-                    Quantidade
-                  </label>
-                  <input
-                    id="item-qty"
-                    type="number"
-                    value={newItemQty}
-                    onChange={(e) => setNewItemQty(e.target.value)}
-                    min="0.01"
-                    step="0.01"
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base text-center
-                               focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                    aria-required="true"
-                    aria-label="Quantidade"
-                  />
-                </div>
-                <div className="w-28">
-                  <label htmlFor="item-unit" className="sr-only">
-                    Unidade de medida
-                  </label>
-                  <select
-                    id="item-unit"
-                    value={newItemUnit}
-                    onChange={(e) => setNewItemUnit(e.target.value)}
-                    className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base
-                               focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                    aria-label="Unidade de medida"
-                  >
-                    {UNIT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Preço opcional */}
-            <div className="flex items-center gap-3">
-              <label htmlFor="item-price" className="text-sm text-gray-600 whitespace-nowrap">
-                Preço (opcional)
-              </label>
-              <div className="relative w-36">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">R$</span>
-                <input
-                  id="item-price"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={newItemPrice}
-                  onChange={(e) => setNewItemPrice(e.target.value)}
-                  className="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  aria-label="Preço do item (opcional)"
-                />
-              </div>
-              <span className="text-xs text-gray-400">Pode registrar depois também</span>
-            </div>
-
-            {/* Seção / Categoria no mercado */}
-            <div>
-              <label htmlFor="item-category" className="block text-sm text-gray-600 mb-1">
-                Seção / Categoria no Mercado
-              </label>
-              <select
-                id="item-category"
-                value={newItemCategory}
-                onChange={(e) => {
-                  setNewItemCategory(e.target.value);
-                  setNewItemCategoryTouched(true);
-                }}
-                className="w-full px-3 py-3 border border-gray-300 rounded-lg text-base
-                           focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-                aria-describedby="item-category-hint"
-              >
-                {CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </option>
-                ))}
-              </select>
-              <p id="item-category-hint" className="text-xs text-gray-500 mt-1">
-                Sugerida automaticamente pelo nome do item — você pode trocar antes de adicionar.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={addingItem}
-              className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg text-base font-medium
-                         hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         transition-colors duration-150"
-              aria-label={addingItem ? 'Adicionando item...' : 'Adicionar item à lista'}
-            >
-              {addingItem ? 'Adicionando...' : '+ Adicionar Item'}
-            </button>
-          </form>
-        </div>
-
-        {/* Lista de itens */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+        {/* Lista de itens — box único com linhas planas + dividers (estilo Listonic, D6) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
           {items.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <div className="text-4xl mb-3" aria-hidden="true">📝</div>
               <p className="text-base">Nenhum item ainda. Adicione o primeiro!</p>
             </div>
           ) : (
-            <>
+            <div className="divide-y divide-gray-100">
               {/* Seção 1: Itens Pendentes */}
-              <div>
-                <h2 className="text-lg font-semibold mb-3 flex items-center justify-between">
+              <div className="pb-2">
+                <h2 className="text-lg font-semibold mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <span>🛒</span> Pendentes
                   </span>
@@ -1188,7 +1057,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                         <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pt-1">
                           <span aria-hidden="true">{group.icon}</span> {group.name} ({group.items.length})
                         </h3>
-                        <ul className="space-y-2" role="list" aria-label={`Itens pendentes de ${group.name}`}>
+                        <ul className="divide-y divide-gray-100" role="list" aria-label={`Itens pendentes de ${group.name}`}>
                           {group.items.map((item) => renderListItem(item))}
                         </ul>
                       </div>
@@ -1198,8 +1067,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </div>
 
               {/* Seção 2: Itens Comprados (Colapsável) */}
+              {/* Seção 2: Itens Comprados (Colapsável — padrão #54, D8) */}
               {completedItems > 0 && (
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4">
                   <button
                     onClick={() => setIsCompletedCollapsed((prev) => !prev)}
                     className="w-full flex items-center justify-between min-h-[44px] text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
@@ -1229,7 +1099,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <ul
                     id="completed-items-list"
                     hidden={isCompletedCollapsed}
-                    className="mt-3 space-y-2"
+                    className="mt-3 divide-y divide-gray-100"
                     role="list"
                     aria-label="Itens comprados"
                   >
@@ -1239,66 +1109,77 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   </ul>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
-
-        {/* Histórico de preços - aparece quando um item é selecionado */}
-        {showPriceHistory && (
-          <div className="mt-6">
-            <PriceHistory 
-              itemId={showPriceHistory} 
-              itemName={items.find(i => i.id === showPriceHistory)?.name || ''} 
-            />
-            <button
-              onClick={() => setShowPriceHistory(null)}
-              className="mt-2 text-sm text-gray-600 hover:text-gray-900"
-              aria-label="Fechar histórico de preços"
-            >
-              Fechar histórico
-            </button>
-          </div>
-        )}
       </main>
 
-      {/* Rodapé de Orçamento (#57/#58): único local de orçamento da página,
-          accordion iniciando COLAPSADO (padrão do #54). O resumo do estado
-          ("Ainda tem para gastar" / "Estourou em") é visível no botão mesmo
-          fechado e atualiza em tempo real. */}
-      {budget > 0 && (
-        <footer
-          className="container mx-auto px-4 pb-8 max-w-2xl"
-          aria-label="Orçamento da lista"
+      {/* Barra de base única (delta 13/08 — estilo Listonic): quick-add com
+          ItemSuggestions + chip de orçamento (abre o sheet para cima).
+          Substitui o footer-accordion de orçamento, o FAB e o form inline
+          desktop — entrada única de adição em mobile E desktop. */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+        <div
+          className="max-w-2xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col gap-1.5"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}
         >
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-            <button
-              onClick={() => setIsBudgetCollapsed((prev) => !prev)}
-              className="w-full flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 min-h-[44px] text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              aria-expanded={!isBudgetCollapsed}
-              aria-controls="budget-summary"
-            >
-              <span className="flex items-center gap-2 text-base">
+          {/* Erro inline do quick-add (role="alert", some ao digitar) */}
+          {quickAddError && (
+            <p id="quick-add-error" role="alert" className="text-sm font-medium text-red-700">
+              {quickAddError}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <form className="flex-1 min-w-0 flex items-center gap-2" onSubmit={handleQuickAdd} noValidate>
+              <label htmlFor="quick-add-name" className="sr-only">
+                Nome do item
+              </label>
+              <ItemSuggestions
+                id="quick-add-name"
+                value={quickAddName}
+                onValueChange={handleQuickAddNameChange}
+                onSelect={handleQuickAddNameChange}
+                placeholder="Adicionar item..."
+                required
+              />
+              <button
+                type="submit"
+                disabled={addingItem}
+                className="w-11 h-11 shrink-0 rounded-xl bg-blue-600 text-white text-2xl font-light flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                aria-label={addingItem ? 'Adicionando item...' : 'Adicionar item'}
+              >
+                +
+              </button>
+            </form>
+
+            {/* Chip de orçamento — trigger do sheet (só com orçamento definido) */}
+            {budget > 0 && (
+              <button
+                ref={budgetChipRef}
+                onClick={openBudgetSheet}
+                className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                aria-expanded={isBudgetSheetOpen}
+                aria-controls="budget-sheet"
+                aria-haspopup="dialog"
+              >
                 <span aria-hidden="true">💰</span>
-                <span>Orçamento</span>
-                <span className="font-bold text-blue-700">
-                  {formatCurrency(budget)}
+                <span className={remaining < 0 ? 'text-red-700' : 'text-green-700'}>
+                  {remaining >= 0 && (
+                    <span className="hidden sm:inline text-xs font-medium">Ainda: </span>
+                  )}
+                  {formatCurrency(remaining)}
                 </span>
-              </span>
-              <span className="text-sm flex items-center gap-1 font-normal">
-                {remaining < 0 ? (
-                  <span className="text-red-600 font-medium">
-                    Estourou em {formatCurrency(Math.abs(remaining))}
-                  </span>
-                ) : (
-                  <span className="text-green-700 font-medium">
-                    Ainda tem para gastar: {formatCurrency(remaining)}
-                  </span>
-                )}
+                <span className="sr-only">
+                  {remaining < 0
+                    ? `Estourou em ${formatCurrency(Math.abs(remaining))}`
+                    : `Ainda tem para gastar: ${formatCurrency(remaining)}`}
+                </span>
                 <svg
                   aria-hidden="true"
                   focusable="false"
-                  className={`w-4 h-4 transition-transform duration-200 ${
-                    isBudgetCollapsed ? '' : 'rotate-180'
+                  className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                    isBudgetSheetOpen ? 'rotate-180' : ''
                   }`}
                   fill="none"
                   stroke="currentColor"
@@ -1306,42 +1187,50 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </span>
-            </button>
+              </button>
+            )}
+          </div>
+        </div>
 
-            <div
-              id="budget-summary"
-              hidden={isBudgetCollapsed}
-              className="border-t border-gray-100 p-4 sm:p-6"
-            >
-              <BudgetSummary
-                budget={budget}
-                totalSpent={totalSpent}
-                remaining={remaining}
-              />
+        {/* Região ao vivo do quick-add — anúncio sem banner duplicado */}
+        <div className="sr-only" role="status" aria-live="polite">
+          {quickAddStatus}
+        </div>
+      </div>
+
+      {/* Sheet de Orçamento — bottom-sheet que expande para cima e cobre a
+          barra (z-50 > z-40). Fecha por X · Esc · backdrop; Tab preso no
+          painel; ao fechar o foco volta ao chip. */}
+      {isBudgetSheetOpen && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="budget-sheet-title">
+          {/* Backdrop — fecha no toque */}
+          <div className="absolute inset-0 bg-black/50" onClick={closeBudgetSheet} aria-hidden="true" />
+          <div
+            ref={budgetSheetRef}
+            tabIndex={-1}
+            onKeyDown={handleBudgetSheetKeyDown}
+            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
+          >
+            <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 shrink-0">
+              <h2 id="budget-sheet-title" className="text-lg font-semibold text-gray-900">
+                Orçamento
+              </h2>
+              <button
+                onClick={closeBudgetSheet}
+                className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar orçamento"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 sm:p-6 pt-0">
+              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={remaining} />
             </div>
           </div>
-        </footer>
+        </div>
       )}
-
-      {/* FAB - Floating Action Button (Mobile & Desktop Quick Add) */}
-      <button
-        onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center text-2xl font-light transition-transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-300"
-        aria-label="Adicionar novo item à lista"
-        title="Adicionar Novo Item"
-      >
-        ➕
-      </button>
-
-      {/* Modal de Adição */}
-      <AddItemModal
-        key={isAddModalOpen ? 'open' : 'closed'}
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAddItem={handleAddItemFromModal}
-        unitOptions={UNIT_OPTIONS}
-      />
     </div>
   );
 }

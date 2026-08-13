@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildQuickAddPayload,
   normalizeCompleted,
   normalizePrice,
   serializeItem,
@@ -191,5 +192,21 @@ describe('splitByCompleted', () => {
     const result = splitByCompleted([]);
     expect(result.pending).toEqual([]);
     expect(result.completed).toEqual([]);
+  });
+});
+
+describe('buildQuickAddPayload (barra de base — quick-add estilo Listonic)', () => {
+  it('usa defaults quantity 1 e unit "un"', () => {
+    expect(buildQuickAddPayload('Leite')).toEqual({ name: 'Leite', quantity: 1, unit: 'un' });
+  });
+
+  it('mantém o nome como enviado (trim é responsabilidade da página)', () => {
+    expect(buildQuickAddPayload('Arroz Integral').name).toBe('Arroz Integral');
+  });
+
+  it('NÃO envia price nem category no payload', () => {
+    const payload = buildQuickAddPayload('Feijão');
+    expect(payload).not.toHaveProperty('price');
+    expect(payload).not.toHaveProperty('category');
   });
 });

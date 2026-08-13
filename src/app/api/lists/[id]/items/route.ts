@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serializeItem } from '@/lib/list-items';
 
 /**
  * POST /api/lists/[id]/items — Adiciona um item a uma lista.
@@ -94,5 +95,6 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ item: data }, { status: 201 });
+  // Normaliza `completed` para string ('0'/'1') — banco devolve number (issues #51/#52)
+  return NextResponse.json({ item: serializeItem(data) }, { status: 201 });
 }

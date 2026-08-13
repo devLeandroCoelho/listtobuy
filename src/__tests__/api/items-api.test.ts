@@ -38,7 +38,13 @@ describe('POST /api/lists/[id]/items (category)', () => {
   }
 
   it('cria item com category → 201 e persiste category', async () => {
-    const created = { id: ITEM_ID, list_id: LIST_ID, name: 'Maçã', category: 'hortifruti' };
+    const created = {
+      id: ITEM_ID,
+      list_id: LIST_ID,
+      name: 'Maçã',
+      category: 'hortifruti',
+      completed: 0, // banco devolve number (NUMERIC)
+    };
     mock = createSupabaseMock({
       lists: { data: { id: LIST_ID } },
       items: { data: created },
@@ -51,7 +57,7 @@ describe('POST /api/lists/[id]/items (category)', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ item: created });
+    expect(await res.json()).toEqual({ item: { ...created, completed: '0' } });
     expect(mock.mocks.itemsInsert).toHaveBeenCalledWith({
       list_id: LIST_ID,
       name: 'Maçã',
@@ -59,6 +65,30 @@ describe('POST /api/lists/[id]/items (category)', () => {
       unit: 'kg',
       category: 'hortifruti',
     });
+  });
+
+  it('REGRESSÃO #51: resposta do POST tem completed como string "0"', async () => {
+    const created = {
+      id: ITEM_ID,
+      list_id: LIST_ID,
+      name: 'Maçã',
+      completed: 0, // o banco devolve number
+    };
+    mock = createSupabaseMock({
+      lists: { data: { id: LIST_ID } },
+      items: { data: created },
+    });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await createItem(
+      makePostRequest({ name: 'Maçã' }),
+      { params: Promise.resolve({ id: LIST_ID }) }
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.item.completed).toBe('0');
+    expect(typeof body.item.completed).toBe('string');
   });
 
   it('category com trim aplicado no insert', async () => {
@@ -158,7 +188,12 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
   }
 
   it('atualiza category → 200 e persiste no update', async () => {
-    const updated = { id: ITEM_ID, name: 'Maçã', category: 'laticinios' };
+    const updated = {
+      id: ITEM_ID,
+      name: 'Maçã',
+      category: 'laticinios',
+      completed: 0, // banco devolve number (NUMERIC)
+    };
     mock = createSupabaseMock({ items: { data: updated } });
     createClientMock.mockResolvedValue(mock as never);
 
@@ -168,8 +203,30 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ item: updated });
+    expect(await res.json()).toEqual({ item: { ...updated, completed: '0' } });
     expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ category: 'laticinios' });
+  });
+
+  it('REGRESSÃO #51: PUT completed → resposta com completed string "1"', async () => {
+    const updated = {
+      id: ITEM_ID,
+      name: 'Maçã',
+      completed: 1, // o banco devolve number
+    };
+    mock = createSupabaseMock({ items: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await updateItem(
+      makePutRequest({ completed: 1 }),
+      { params: Promise.resolve({ id: LIST_ID, itemId: ITEM_ID }) }
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.item.completed).toBe('1');
+    expect(typeof body.item.completed).toBe('string');
+    // INSERT/UPDATE continua gravando number na coluna NUMERIC
+    expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ completed: 1 });
   });
 
   it('category null → limpa a categoria no update', async () => {

@@ -27,6 +27,8 @@ export interface SupabaseBehavior {
   lists?: { data?: unknown; error?: unknown };
   /** Resultado de from('items')...single() (GET lista e suggestions). Default: { data: [], error: null }. */
   items?: { data?: unknown; error?: unknown };
+  /** Resultado de from('prices')...single() (GET por item e POST/upsert). Default: { data: [], error: null }. */
+  prices?: { data?: unknown; error?: unknown };
   /** Erro retornado por from('lists').delete().eq(). Default: null (sucesso). */
   deleteError?: unknown;
 }
@@ -47,6 +49,8 @@ export interface SupabaseMock {
     itemsInsert: Mock;
     itemsUpdate: Mock;
     itemsDelete: Mock;
+    pricesSelect: Mock;
+    pricesUpsert: Mock;
   };
 }
 
@@ -62,6 +66,11 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   const itemsResult = {
     data: behavior.items?.data ?? [],
     error: behavior.items?.error ?? null,
+  };
+
+  const pricesResult = {
+    data: behavior.prices?.data ?? [],
+    error: behavior.prices?.error ?? null,
   };
 
   const deleteError = behavior.deleteError ?? null;
@@ -96,6 +105,8 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
         resolve(itemsResult);
       },
       order: vi.fn().mockResolvedValue(itemsResult),
+      // Ownership check do POST /api/prices: .eq('id', item_id).single()
+      single: vi.fn().mockResolvedValue(itemsResult),
     }),
     order: vi.fn().mockReturnValue({ limit: itemsOrder }),
   });
@@ -118,6 +129,17 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   }));
   const itemsDelete = vi.fn().mockReturnValue({ eq: itemsDeleteEq });
 
+  // Cadeias de `prices` (GET por item e POST/upsert)
+  const pricesSelect = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      order: vi.fn().mockResolvedValue(pricesResult),
+    }),
+  });
+  const pricesUpsertSingle = vi.fn().mockResolvedValue(pricesResult);
+  const pricesUpsert = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({ single: pricesUpsertSingle }),
+  });
+
   const from = vi.fn((table: string) => {
     if (table === 'lists') {
       return { insert, select, delete: deleteList };
@@ -129,6 +151,9 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
         update: itemsUpdate,
         delete: itemsDelete,
       };
+    }
+    if (table === 'prices') {
+      return { select: pricesSelect, upsert: pricesUpsert };
     }
     throw new Error(`Tabela não mockada no helper de testes: "${table}"`);
   });
@@ -149,6 +174,8 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
       itemsInsert,
       itemsUpdate,
       itemsDelete,
+      pricesSelect,
+      pricesUpsert,
     },
   };
 }

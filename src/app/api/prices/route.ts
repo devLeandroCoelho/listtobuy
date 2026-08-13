@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serializePriceRow, serializePriceRows } from '@/lib/list-items';
 
 /**
  * POST /api/prices — Registra preço de um item.
  * GET /api/prices?item_id=xxx — Retorna preços de um item.
+ *
+ * Contrato de `value`: sempre `number | null` na resposta (o PostgREST pode
+ * devolver NUMERIC como string em valores altos — issue #56).
  */
 
 export async function POST(request: Request) {
@@ -89,7 +93,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ price: data }, { status: 201 });
+  // Normaliza `value` para number/null na fronteira (issue #56)
+  return NextResponse.json({ price: serializePriceRow(data) }, { status: 201 });
 }
 
 export async function GET(request: Request) {
@@ -124,5 +129,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ prices: data });
+  // Normaliza `value` para number/null na fronteira (issue #56)
+  return NextResponse.json({ prices: serializePriceRows(data ?? []) });
 }

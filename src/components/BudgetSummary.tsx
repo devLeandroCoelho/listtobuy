@@ -110,7 +110,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
       {/* Card: Orçamento Total */}
       <div
         className={`bg-white p-6 rounded-xl shadow text-center ${isEditing ? 'ring-2 ring-blue-500' : ''}`}
-        aria-label={`Orçamento total: ${formatCurrency(budget)}`}
+        aria-label={`Orçamento total: ${budget === 0 ? 'não definido' : formatCurrency(budget)}`}
       >
         <div className="text-sm text-gray-600 mb-1">Orçamento</div>
         {isEditing ? (
@@ -156,19 +156,19 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
         ) : (
           <>
             <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency(budget)}
+              {budget === 0 ? 'Não definido' : formatCurrency(budget)}
             </div>
             {onSaveBudget && (
               <button
                 type="button"
                 onClick={startEditing}
                 className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
-                aria-label="Editar orçamento"
+                aria-label={budget === 0 ? 'Definir orçamento' : 'Editar orçamento'}
               >
                 <svg aria-hidden="true" focusable="false" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
-                Editar
+                {budget === 0 ? 'Definir' : 'Editar'}
               </button>
             )}
           </>

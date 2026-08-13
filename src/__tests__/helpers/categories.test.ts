@@ -24,6 +24,24 @@ describe('guessCategoryByName', () => {
     expect(guessCategoryByName('acucar refinado')).toBe('mercearia');
     expect(guessCategoryByName('agua sanitaria')).toBe('limpeza');
   });
+
+  it('match por PALAVRA INTEIRA — não casa substring dentro de outra palavra', () => {
+    // 'salsa' (hortifruti) NÃO deve casar 'salsicha' (carnes)
+    expect(guessCategoryByName('salsicha')).toBe('carnes');
+    expect(guessCategoryByName('salsicha de peru')).toBe('carnes');
+    // 'sal' (mercearia) NÃO deve casar 'salame' (laticínios) nem 'salmão' (carnes)
+    expect(guessCategoryByName('salame')).toBe('laticinios');
+    expect(guessCategoryByName('salmão')).toBe('carnes');
+    // mas 'sal' como palavra completa continua casando mercearia
+    expect(guessCategoryByName('sal grosso')).toBe('mercearia');
+    // 'salsa' continua em hortifruti
+    expect(guessCategoryByName('salsa')).toBe('hortifruti');
+  });
+
+  it('keyword espinafre corrigida (typo antigo espinhafre)', () => {
+    expect(guessCategoryByName('espinafre')).toBe('hortifruti');
+    expect(guessCategoryByName('maço de espinafre')).toBe('hortifruti');
+  });
 });
 
 describe('getCategoryById', () => {

@@ -43,6 +43,8 @@ export interface SupabaseMock {
     single: Mock;
     delete: Mock;
     deleteEq: Mock;
+    update: Mock;
+    updateEq: Mock;
     itemsSelect: Mock;
     itemsOrder: Mock;
     ilike: Mock;
@@ -85,6 +87,11 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   const insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) });
   const deleteEq = vi.fn().mockResolvedValue({ error: deleteError });
   const deleteList = vi.fn().mockReturnValue({ eq: deleteEq });
+
+  const updateSingle = vi.fn().mockResolvedValue(listsResult);
+  const updateSelect = vi.fn().mockReturnValue({ single: updateSingle });
+  const updateEq = vi.fn(() => ({ select: updateSelect }));
+  const update = vi.fn().mockReturnValue({ eq: updateEq });
 
   // Query builder thenable para `items` (suggestions):
   // o handler faz `await query` e, se houver `q`, chama `query.ilike(...)`.
@@ -142,7 +149,7 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
 
   const from = vi.fn((table: string) => {
     if (table === 'lists') {
-      return { insert, select, delete: deleteList };
+      return { insert, select, update, delete: deleteList };
     }
     if (table === 'items') {
       return {
@@ -168,6 +175,8 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
       single,
       delete: deleteList,
       deleteEq,
+      update,
+      updateEq,
       itemsSelect,
       itemsOrder,
       ilike,

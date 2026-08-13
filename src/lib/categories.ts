@@ -12,7 +12,7 @@ export const CATEGORIES: CategoryConfig[] = [
     icon: '🥬',
     keywords: [
       'maçã', 'banana', 'laranja', 'limão', 'uva', 'tomate', 'cebola', 'alho',
-      'batata', 'cenoura', 'alface', 'rúcula', 'espinhafre', 'cheiro verde',
+      'batata', 'cenoura', 'alface', 'rúcula', 'espinafre', 'cheiro verde',
       'salsa', 'coentro', 'mamão', 'melancia', 'melão', 'morango', 'abacate',
       'abobrinha', 'chuchu', 'pimentão', 'mandioca', 'fruta', 'verdura', 'legume'
     ],
@@ -94,15 +94,51 @@ export const CATEGORIES: CategoryConfig[] = [
   },
 ];
 
-/** Tenta adivinhar a categoria pelo nome do item */
+/** Divide o nome em tokens (palavras), ignorando acentos para o match. */
+function tokenize(s: string): string[] {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** Verifica se a sequência `seq` aparece contígua em `tokens`. */
+function containsSequence(tokens: string[], seq: string[]): boolean {
+  for (let i = 0; i <= tokens.length - seq.length; i += 1) {
+    let match = true;
+    for (let j = 0; j < seq.length; j += 1) {
+      if (tokens[i + j] !== seq[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return true;
+  }
+  return false;
+}
+
+/**
+ * Tenta adivinhar a categoria pelo nome do item.
+ *
+ * Matching por PALAVRA INTEIRA (token), não por substring: evita falsos
+ * positivos como 'salsa' ⊂ 'salsicha' (item de Carnes caindo em Hortifrúti)
+ * ou 'sal' ⊂ 'salame'/'salmão'. Acentos são ignorados ('pão' e 'pao' casam).
+ */
 export function guessCategoryByName(itemName: string): string {
-  const cleanName = itemName.toLowerCase().trim();
-  if (!cleanName) return 'outros';
+  const tokens = tokenize(itemName);
+  if (tokens.length === 0) return 'outros';
 
   for (const cat of CATEGORIES) {
     if (cat.id === 'outros') continue;
     for (const kw of cat.keywords) {
-      if (cleanName.includes(kw)) {
+      const kwTokens = tokenize(kw);
+      if (kwTokens.length === 0) continue;
+
+      if (kwTokens.length === 1) {
+        if (tokens.includes(kwTokens[0])) return cat.id;
+      } else if (containsSequence(tokens, kwTokens)) {
         return cat.id;
       }
     }

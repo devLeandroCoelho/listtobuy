@@ -35,6 +35,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [archiveFilter, setArchiveFilter] = useState<'all' | 'active' | 'archived'>('active');
+  const [monthSearch, setMonthSearch] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const router = useRouter();
@@ -63,13 +65,25 @@ export default function DashboardPage() {
 
       const { data: userLists } = await query.order('created_at', { ascending: false });
 
-      setLists(userLists || []);
+      let filtered = userLists || [];
+
+      if (nameSearch.trim()) {
+        const term = nameSearch.trim().toLowerCase();
+        filtered = filtered.filter((list) => list.name.toLowerCase().includes(term));
+      }
+
+      if (monthSearch.trim()) {
+        const term = monthSearch.trim().toLowerCase();
+        filtered = filtered.filter((list) => list.month.includes(term));
+      }
+
+      setLists(filtered);
     } catch {
       setError('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
-  }, [supabase, archiveFilter]);
+  }, [supabase, archiveFilter, nameSearch, monthSearch]);
 
   useEffect(() => {
     const checkAuthAndLoad = async () => {
@@ -232,6 +246,36 @@ export default function DashboardPage() {
             >
               + Nova Lista
             </Link>
+          </div>
+        </div>
+
+        <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200 shadow-xs">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              value={nameSearch}
+              onChange={(e) => setNameSearch(e.target.value)}
+              placeholder="Buscar por nome..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="Buscar lista por nome"
+            />
+            <input
+              type="text"
+              value={monthSearch}
+              onChange={(e) => setMonthSearch(e.target.value)}
+              placeholder="Filtrar por mês (YYYY-MM)"
+              className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="Filtrar listas por mês"
+            />
+            {(nameSearch || monthSearch) && (
+              <button
+                onClick={() => { setNameSearch(''); setMonthSearch(''); }}
+                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                aria-label="Limpar filtros"
+              >
+                Limpar
+              </button>
+            )}
           </div>
         </div>
 

@@ -12,7 +12,8 @@
 [![Stripe](https://img.shields.io/badge/Stripe-635BFF?style=for-the-badge&logo=stripe&logoColor=white)](https://stripe.com/)
 [![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vercel.com/)
 
-![Status](https://img.shields.io/badge/Status-MVP_Planning-orange?style=for-the-badge)
+[![CI](https://github.com/devLeandroCoelho/listtobuy/actions/workflows/ci.yml/badge.svg)](https://github.com/devLeandroCoelho/listtobuy/actions/workflows/ci.yml)
+![Status](https://img.shields.io/badge/Status-MVP_Em_Produção-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-TBD-blue?style=for-the-badge)
 
 </div>
@@ -53,7 +54,14 @@ App de lista de compras de supermercado com **orçamento mensal**, **histórico 
 | Fase | Status |
 |------|--------|
 | Fase 0 — Fundação | ✅ Concluída |
-| Fase 1 — MVP | 🚧 Em Planejamento |
+| Fase 1 — MVP | ✅ Em Produção (Vercel) |
+
+### Qualidade
+
+| Checagem | Status |
+|----------|--------|
+| Testes | ✅ 82 testes Vitest passando |
+| CI | ✅ Verde (typecheck, lint, teste, build) |
 
 ### Como rodar
 
@@ -63,8 +71,6 @@ cd listtobuy
 npm install
 npm run dev
 ```
-
-> O código será adicionado na Fase 1 (MVP).
 
 Consulte o [ROADMAP.md](ROADMAP.md) para o planejamento completo.
 
@@ -100,25 +106,25 @@ Grocery shopping list app with **monthly budget tracking**, **price history**, a
 | Phase | Status |
 |-------|--------|
 | Phase 0 — Foundation | ✅ Complete (market research, monetization, naming) |
-| Phase 1 — MVP | 🚧 In Planning |
+| Phase 1 — MVP | ✅ In Production (Vercel) |
+
+### Quality
+
+| Check | Status |
+|-------|--------|
+| Tests | ✅ 82 Vitest tests passing |
+| CI | ✅ Green (typecheck, lint, test, build) |
 
 See [ROADMAP.md](ROADMAP.md) for full planning details.
 
 ## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/devLeandroCoelho/listtobuy.git
 cd listtobuy
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
-
-> ⚠️ Code will be added in Phase 1 (MVP). This section will be updated once the initial codebase is available.
 
 ## Folder Structure
 

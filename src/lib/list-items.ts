@@ -123,3 +123,22 @@ export function splitByCompleted<T extends ItemLike>(items: T[]): CompletedSplit
 
   return { pending, completed };
 }
+
+/** Payload do quick-add da barra de base (estilo Listonic). */
+export interface QuickAddPayload {
+  name: string;
+  quantity: number;
+  unit: string;
+}
+
+/**
+ * Monta o payload do quick-add (barra de base, delta 13/08).
+ *
+ * Defaults: quantity 1 e unit 'un'. SEM price e SEM category de propósito: a
+ * coluna `category` fica NULL no banco e o auto-guess pelo nome roda a cada
+ * render (respeita o fix A1/PR#50); preço entra depois, ao marcar comprado.
+ * O nome deve chegar já trimado pela página.
+ */
+export function buildQuickAddPayload(name: string): QuickAddPayload {
+  return { name, quantity: 1, unit: 'un' };
+}

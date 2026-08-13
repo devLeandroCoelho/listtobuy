@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serializeItems } from '@/lib/list-items';
 
 /**
  * GET /api/lists/[id] — Busca uma lista e seus itens.
@@ -46,7 +47,11 @@ export async function GET(_request: Request, { params }: Params) {
     return NextResponse.json({ error: itemsError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ list: { ...list, items: items ?? [] } });
+  // Normaliza `completed` para string ('0'/'1') na fronteira — o banco devolve
+  // number (NUMERIC) e o contrato do client é string (issues #51/#52).
+  return NextResponse.json({
+    list: { ...list, items: serializeItems(items ?? []) },
+  });
 }
 
 export async function DELETE(_request: Request, { params }: Params) {

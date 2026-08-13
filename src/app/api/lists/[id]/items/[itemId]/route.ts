@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { serializeItem } from '@/lib/list-items';
 
 /**
  * PUT /api/lists/[id]/items/[itemId] — Edita um item (body parcial).
@@ -103,7 +104,8 @@ export async function PUT(request: Request, { params }: Params) {
     return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 });
   }
 
-  return NextResponse.json({ item: data });
+  // Normaliza `completed` para string ('0'/'1') — banco devolve number (issues #51/#52)
+  return NextResponse.json({ item: serializeItem(data) });
 }
 
 export async function DELETE(_request: Request, { params }: Params) {

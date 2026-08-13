@@ -135,11 +135,11 @@ describe('GET /api/lists/[id]', () => {
     });
   }
 
-  it('retorna lista do dono com itens → 200', async () => {
+  it('retorna lista do dono com itens → 200 (completed normalizado p/ string)', async () => {
     const list = { id: LIST_ID, name: 'Mercado', month: '2026-08' };
     const items = [
-      { id: 'item-1', list_id: LIST_ID, name: 'Arroz' },
-      { id: 'item-2', list_id: LIST_ID, name: 'Feijão' },
+      { id: 'item-1', list_id: LIST_ID, name: 'Arroz', completed: 0 }, // banco: number
+      { id: 'item-2', list_id: LIST_ID, name: 'Feijão', completed: 1 }, // banco: number
     ];
     mock = createSupabaseMock({ lists: { data: list }, items: { data: items } });
     createClientMock.mockResolvedValue(mock as never);
@@ -147,9 +147,35 @@ describe('GET /api/lists/[id]', () => {
     const res = await callGetList();
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ list: { ...list, items } });
+    // REGRESSÃO #51: completed deve sair como string '0'/'1', não number
+    expect(await res.json()).toEqual({
+      list: {
+        ...list,
+        items: [
+          { ...items[0], completed: '0' },
+          { ...items[1], completed: '1' },
+        ],
+      },
+    });
     expect(mock.mocks.selectEq).toHaveBeenCalledWith('id', LIST_ID);
     expect(mock.mocks.itemsSelect).toHaveBeenCalledWith('*');
+  });
+
+  it('REGRESSÃO #52: item comprado (completed=1) sai como "1" string na resposta', async () => {
+    const list = { id: LIST_ID, name: 'Mercado', month: '2026-08' };
+    mock = createSupabaseMock({
+      lists: { data: list },
+      items: {
+        data: [{ id: 'item-2', list_id: LIST_ID, name: 'Feijão', completed: 1 }],
+      },
+    });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await callGetList();
+    const body = await res.json();
+
+    expect(body.list.items[0].completed).toBe('1');
+    expect(typeof body.list.items[0].completed).toBe('string');
   });
 
   it('lista do dono sem itens → 200 com items vazio', async () => {

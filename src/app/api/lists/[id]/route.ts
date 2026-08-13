@@ -85,6 +85,22 @@ export async function PATCH(request: Request, { params }: Params) {
     updates.budget = budgetValue;
   }
 
+  if ('name' in body) {
+    const nameValue = body.name;
+    if (typeof nameValue !== 'string' || !nameValue.trim()) {
+      return NextResponse.json({ error: 'Nome deve ser uma string não vazia' }, { status: 400 });
+    }
+    updates.name = nameValue.trim();
+  }
+
+  if ('archived_at' in body) {
+    const archivedValue = body.archived_at;
+    if (archivedValue !== undefined && archivedValue !== null && typeof archivedValue !== 'boolean') {
+      return NextResponse.json({ error: 'archived_at deve ser boolean ou null' }, { status: 400 });
+    }
+    updates.archived_at = archivedValue === true ? new Date().toISOString() : null;
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 });
   }

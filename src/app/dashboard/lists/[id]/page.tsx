@@ -48,6 +48,7 @@ interface ListData {
   name: string;
   month: string;
   budget: string;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -121,6 +122,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Campo que recebe foco ao abrir a edição: 'name' (lápis) ou 'qty' (chip de quantidade, D7)
   const [editFocusField, setEditFocusField] = useState<'name' | 'qty'>('name');
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Estado de edição do nome da lista
+  const [editingListName, setEditingListName] = useState(false);
+  const [listNameValue, setListNameValue] = useState('');
+  const [savingListName, setSavingListName] = useState(false);
 
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
@@ -236,6 +242,56 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     },
     [id, showSuccess]
   );
+
+  /** Inicia edição do nome da lista */
+  const startEditingListName = useCallback(() => {
+    if (!list) return;
+    setListNameValue(list.name);
+    setEditingListName(true);
+  }, [list]);
+
+  /** Salva novo nome da lista (PATCH /api/lists/[id]) */
+  const handleSaveListName = useCallback(async () => {
+    const trimmed = listNameValue.trim();
+    if (!trimmed) {
+      setError('Nome da lista não pode ser vazio');
+      return;
+    }
+
+    if (trimmed === list?.name) {
+      setEditingListName(false);
+      return;
+    }
+
+    setSavingListName(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar nome');
+      }
+
+      setList((prev) => (prev ? { ...prev, name: data.list.name } : prev));
+      setEditingListName(false);
+      showSuccess('Nome da lista atualizado');
+    } catch {
+      setError('Erro ao salvar nome da lista');
+    } finally {
+      setSavingListName(false);
+    }
+  }, [id, list, listNameValue, showSuccess]);
+
+  const cancelEditingListName = useCallback(() => {
+    setListNameValue('');
+    setEditingListName(false);
+    setError('');
+  }, []);
 
   /** Sheet de orçamento: ao abrir, foca o painel (foco entra no sheet) */
   useEffect(() => {
@@ -899,13 +955,58 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               ← Voltar
             </Link>
             <div className="flex-1 min-w-0 text-center">
-              <h1 className="text-lg font-bold text-gray-900 truncate">
-                {list.name}
-                <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
-              </h1>
-              <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
-                {miniStatus}
-              </p>
+              {editingListName ? (
+                <div className="flex items-center justify-center gap-2">
+                  <input
+                    type="text"
+                    value={listNameValue}
+                    onChange={(e) => setListNameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleSaveListName();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelEditingListName();
+                      }
+                    }}
+                    className="px-2 py-1 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    aria-label="Novo nome da lista"
+                    autoFocus
+                    disabled={savingListName}
+                  />
+                  <button
+                    onClick={handleSaveListName}
+                    disabled={savingListName}
+                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                    aria-label="Salvar nome da lista"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={cancelEditingListName}
+                    disabled={savingListName}
+                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Cancelar edição do nome"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-lg font-bold text-gray-900 truncate">
+                    {list.name}
+                    <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
+                  </h1>
+                  <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
+                    {miniStatus}
+                  </p>
+                </>
+              )}
             </div>
             <div className="flex items-center shrink-0">
               <button
@@ -926,6 +1027,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+              {!editingListName && (
+                <button
+                  onClick={startEditingListName}
+                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-label="Editar nome da lista"
+                  title="Editar nome"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={handleDeleteList}
                 className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"

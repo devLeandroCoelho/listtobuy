@@ -350,4 +350,70 @@ describe('PATCH /api/lists/[id]', () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'update failed' });
   });
+
+  it('atualiza nome com sucesso → 200', async () => {
+    const updated = { id: LIST_ID, name: 'Novo Nome', month: '2026-08', budget: 0 };
+    mock = createSupabaseMock({ lists: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ name: 'Novo Nome' }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ list: updated });
+    expect(mock.mocks.update).toHaveBeenCalledWith({ name: 'Novo Nome' });
+  });
+
+  it('name vazio → 400', async () => {
+    const res = await patchList(makePatchRequest({ name: '   ' }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Nome deve ser uma string não vazia' });
+    expect(mock.mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('arquiva lista com sucesso → 200', async () => {
+    const updated = { id: LIST_ID, name: 'Mercado', month: '2026-08', budget: 0, archived_at: '2026-08-13T19:00:00Z' };
+    mock = createSupabaseMock({ lists: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ archived_at: true }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ list: updated });
+    expect(mock.mocks.update).toHaveBeenCalled();
+  });
+
+  it('desarquiva lista (null) → 200', async () => {
+    const updated = { id: LIST_ID, name: 'Mercado', month: '2026-08', budget: 0, archived_at: null };
+    mock = createSupabaseMock({ lists: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ archived_at: false }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ list: updated });
+    expect(mock.mocks.update).toHaveBeenCalled();
+  });
+
+  it('atualiza nome e orçamento juntos → 200', async () => {
+    const updated = { id: LIST_ID, name: 'Mercado Atualizado', month: '2026-08', budget: 200 };
+    mock = createSupabaseMock({ lists: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await patchList(makePatchRequest({ name: 'Mercado Atualizado', budget: 200 }), {
+      params: Promise.resolve({ id: LIST_ID }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ list: updated });
+    expect(mock.mocks.update).toHaveBeenCalledWith({ name: 'Mercado Atualizado', budget: 200 });
+  });
 });

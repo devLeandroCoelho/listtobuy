@@ -27,6 +27,7 @@ export const lists = pgTable('lists', {
   name: text('name').notNull(),
   month: text('month').notNull(), // Formato: "2026-08"
   budget: numeric('budget', { precision: 10, scale: 2 }).notNull().default('0'),
+  archivedAt: timestamp('archived_at'), // NULL = ativa; preenchida = arquivada
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

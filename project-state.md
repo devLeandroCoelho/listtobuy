@@ -2,7 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
-> Última atualização: 2026-08-12 (frontend #41: correção MAJOR A1 do QA — `category` só é enviada no POST se o usuário tocou no seletor (`categoryTouched`); sem interação o campo é omitido → coluna NULL → auto-guess pelo nome roda a cada render/renomeação; escolha manual de 'outros' continua persistida; edição (PUT) inalterada, já envia null para "Sem categoria" — commit effd843; 63 testes; backend #41: API persiste `category` — commit d66a902, branch `feat/item-categories-market-sections`; migração 005 commit 41c9c6c; Stripe P6 ⏸️ postergado até tração — D10; categorização #41 priorizada para o sprint 13/08 — D11; repo consolidado renomeado `frontend-lab` — D3; Anomalithic vitrine — D2; bloqueios do QA de 12/08 corrigidos no PR #47 — issue #46)
+> Última atualização: 2026-08-13 (rodada autopilot: **CI de master destravado** — lockfile regenerado com npm 10 adicionando esbuild@0.28.2 (peer do vite 8 via vitest) — PR #49 mergeado; **colisão de keywords da categorização corrigida** — PR #50 mergeado (tokenização por palavra inteira + fix typo 'espinhafre'→'espinafre'; 65 testes); **issue #24 (P5 smoke+Lighthouse) encerrada** com evidência; migração 005 aplicada em produção 12/08 23:21; task-api: PRs #6/#7/#8 mergeados; frontend-lab criado com 1º lote; Anomalithic D5 pendente confirmado; **auditoria formal pós-merge (13/08)**: qa-engineer + security-blue-team APROVADO — 0 CRITICAL; 1 MAJOR (focus trap do modal, #42) + 12 MINOR p/ backlog)
 
 ---
 
@@ -36,13 +36,13 @@ Analytics:   a definir
 | Item | Status |
 |---|---|
 | Deploy | 🟢 Produção ativa na Vercel (`https://listtobuy-kappa.vercel.app`) — alias principal ainda é URL de deploy, não domínio próprio |
-| Supabase | 🟢 Projeto ativo `ynxbtrhaebvoblvtczna` — migrations 001 (initial) + 002 (sharing) + 003 (policy INSERT users) aplicadas via `supabase db push` (11/08/2026) |
+| Supabase | 🟢 Projeto ativo `ynxbtrhaebvoblvtczna` — migrations 001 (initial) + 002 (sharing) + 003 (policy INSERT users) + 004 + 005 (categoria de itens, commit 41c9c6c) aplicadas (005 em 12/08 23:21 via `supabase db push`) |
 | RLS/Segurança | 🟢 RLS habilitado em todas as tabelas (users, lists, items, prices, list_shares) + policy INSERT em users (003) |
 | Auth | 🟢 `mailer_autoconfirm` habilitado no dashboard (confirm email OFF) — cadastro loga direto |
 | Env vars (Vercel) | 🟢 `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` corrigidas apontando para o projeto correto (Production; Preview p/ configurar) |
 | Build | 🟢 verde |
-| Testes | 🟢 Smoke test via API (11/08/2026) + **22 testes vitest** (lists-api: 14, suggestions-api: 8) — todos passando (PR #32, 12/08/2026) |
-| CI | 🟢 verde — PRs #1–#32 merged em master (job vitest adicionado em 12/08) |
+| Testes | 🟢 Smoke test via API (11/08/2026) + **65 testes vitest** (lists-api, suggestions-api, helpers categories/grouping, rate limit) — todos passando (PR #50, 13/08/2026) |
+| CI | 🟢 verde em master — **lockfile destravado 13/08 (PR #49)**: regenerado com npm 10 (node 22) para incluir `esbuild@0.28.2` (peer opcional do vite 8 via vitest 4); antes o lockfile gerado com npm 11 quebrava `npm ci` no runner (Missing: esbuild@0.28.2) |
 | Mobile | 🟢 Fix autocomplete <375px mergeado (PR #29, 12/08/2026) — issue #23 encerrada |
 | Setup inicial | 🟢 PRs #1–#4 — repo, schema, Supabase client, layout |
 | Landing Page + Auth | 🟢 PR #6 (feat/landing-page-auth) — Hero, Features, Pricing, Auth |
@@ -51,6 +51,7 @@ Analytics:   a definir
 | Price History | 🟢 PR #11 (feat/price-history) — Componente PriceHistory, API /api/prices/history |
 | List Sharing | 🟢 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
 | Fixes | 🟢 PRs #9, #10, #13 (types/ESLint/CI env), #14 (secrets gitignore), #15 (migration 001), #17 (RLS registro) |
+| Contrato price | 🟢 **PR #60 (fix/56-price-contract, 13/08)** — `price`/`value` normalizado como `number \| null` na fronteira (`normalizePrice` em `src/lib/list-items.ts`, aplicado em `GET/POST /api/prices`); PostgREST devolve NUMERIC como string em numeral alto → soma do orçamento (#56) quebrava por concatenação. Testes: 99/99 (antes 82), tsc 0 erros, lint limpo. Aguardando review do dev-manager |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
 
@@ -90,6 +91,8 @@ Analytics:   a definir
 | devops (Felipe) | ✅ Env vars da Vercel (Production) corrigidas | `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` apontando para o projeto `ynxbtrhaebvoblvtczna` |
 | qa-engineer (Diego) | ✅ Smoke test ponta a ponta via API (11/08/2026) | Registro (autoconfirm), perfil, lista, item, preço, compartilhamento, isolamento RLS — todos passaram |
 | qa-engineer (Diego) | ✅ Bugs críticos de produção identificados e corrigidos (PRs #17 e #18) | (1) Tabela `users` sem policy INSERT → cadastro quebrava; (2) Frontend chamava rotas `/api/lists*` que não existiam → criar lista dava 404 |
+| qa-engineer (Diego) | ✅ **Auditoria formal pós-merge (13/08)** — APROVADO, 0 CRITICAL | PRs #36 + #42–#45 (12/08): 65 testes vitest + typecheck + build ok; critérios #34/#37/#38/#39/#40 atendidos; 1 MAJOR (focus trap do modal — p/ backlog) + 11 MINOR |
+| security-blue-team (André) | ✅ **Auditoria segurança pós-merge (13/08)** — APROVADO, 0 CRITICAL | RLS intacta nas 4 tabelas; migration 004 (UNIQUE) correta; ownership verificado nas rotas de escrita; zero XSS; zero secrets; CSRF ok (SameSite=Lax); MINORs p/ backlog (enumeração e-mail no shares, defense-in-depth nos GETs de preço, rate limiting) |
 
 ## 7. Pendências Priorizadas (Backlog)
 
@@ -108,12 +111,14 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | P2 | Consulta formal de anterioridade INPI (classes 9/35/42) + registro de marca "LISTTOBUY" | copywriter/chefe | Decisão D6 | ⏸️ postergado; requisito antes de esforço de branding |
 | P3 | Teste de aceitação do nome com 5-10 usuários BR (pronúncia "ListToBuy", escrever, adivinhar função) | market-researcher | Rafael | ⏸️ postergado (opcional pré-lançamento) |
 | P4 | Sugestão de itens já usados (autocomplete com histórico do usuário) | backend-dev / frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (12/08)** — API (PR #21) + UI autocomplete (PR #28) + fix mobile <375px (PR #29) — issue #23 totalmente encerrada |
-| P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | 🟡 em andamento — smoke test via API passou (11/08); teste navegador + Lighthouse pendente (issue #24) |
+| P5 | Validações/UX finais + smoke tests de UX em produção | qa-engineer / ui-ux-designer | Fase 1 (MVP) | ✅ **CONCLUÍDO (13/08)** — smoke navegador (Playwright+Chrome): landing 200, título, /login, /dashboard→redirect, mobile 375px sem overflow; Lighthouse: Perf 100, A11y 98, BP 96, SEO 100 (LCP 1.6s, CLS 0, TBT 30ms) — issue #24 fechada com evidência (comentário #issuecomment-5275272116) |
 | P6 | Integração Stripe (Premium R$ 29,90/ano): checkout, webhooks, gestão de assinatura | backend-dev | Freemium (B1/D5) | ⏸️ **POSTERGADO até tração (decisão do chefe 12/08, D10)** — issue #25 permanece aberta; retomar quando houver usuários ativos (critério de retomada: ex. ~1.000 usuários ativos/mês ou 3 meses de crescimento contínuo) |
 | P7 | Env vars de **Preview** na Vercel (NEXT_PUBLIC_SUPABASE_*) | devops | CI/CD | ✅ **CONCLUÍDO (11/08)** — envs adicionadas ao ambiente Preview (issue #26, registrada e fechada) |
 | P8 | Job de testes no CI (hoje só typecheck+lint+build) + suíte de testes | devops / qa-engineer | Qualidade | ✅ **CONCLUÍDO (12/08)** — job vitest + 22 testes (lists-api 14 + suggestions-api 8) mergeados PR #32 — issue #27 encerrada |
-| P9 | **Categorização de itens por seção do mercado** (issue #41, criada 12/08) | backend-dev / frontend-dev / qa-engineer | Decisão D11 (12/08) | 🟡 em andamento — **backend CONCLUÍDO (12/08)**: migração 005 (coluna `category` nullable, commit 41c9c6c) + API create/update/clone persiste `category` (commit d66a902) — **frontend CONCLUÍDO (12/08)**: seletor de seção com auto-guess + escolha manual no AddItemModal e no form inline desktop; correção da persistência no POST do modal (antes a `category` era descartada); edição de categoria no fluxo de edição do item ('' → null limpa); agrupamento de pendentes extraído para `src/lib/grouping.ts` + 16 testes novos de helpers (63 no total); **correção MAJOR A1 do QA (commit effd843)**: `category` enviada no POST apenas quando o usuário tocou no seletor — sem interação o campo é omitido (coluna NULL, auto-guess livre); aguardando re-validação do QA |
-| P10 | **Bloqueios do QA de 12/08** (issue #46): preço descartado silenciosamente, lint set-state-in-effect, race no +/-, mês inválido no clone | frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (12/08)** — PR #47 (branch fix/qa-46, aguardando review do dev-manager); 33 testes passando |
+| P9 | **Categorização de itens por seção do mercado** (issue #41, criada 12/08) | backend-dev / frontend-dev / qa-engineer | Decisão D11 (12/08) | ✅ **CONCLUÍDO (13/08)** — migração 005 (coluna `category` nullable) aplicada em prod 12/08 23:21; API persiste `category`; frontend com seletor + auto-guess; **correção MAJOR A1** (category só no POST quando usuário tocou o seletor); **PR #50 (13/08) corrige colisão de keywords**: `guessCategoryByName` agora tokeniza o nome (NFD, sem acentos, split não-alfanumérico) e casa por palavra inteira + sequência contígua p/ keywords multi-palavra — bugs 'salsa'⊂'salsicha' (hortifruti), 'sal'⊂'salame' (laticinios), 'sal'⊂'salmão' (carnes) e typo 'espinhafre'→'espinafre' corrigidos; 9 testes novos (65 total) |
+| P10 | **Bloqueios do QA de 12/08** (issue #46): preço descartado silenciosamente, lint set-state-in-effect, race no +/-, mês inválido no clone | frontend-dev | Fase 1 (MVP) | ✅ **CONCLUÍDO (12/08)** — PR #47 mergeado (33 testes); issue #46 encerrada |
+| P11 | **Focus trap no modal de adição** (AddItemModal) — achado MAJOR da auditoria 13/08 (#42-A): teclado tabula para o conteúdo de fundo; foco não entra no modal ao abrir nem retorna ao FAB ao fechar (WCAG 2.1.2 / padrão dialog) | frontend-dev | Auditoria 13/08 | 🔴 próximo sprint (não bloqueia release — sem regressão funcional) |
+| P12 | **Segurança/robustez (MINORs da auditoria 13/08)**: (a) GETs de preço/histórico sem ownership no código (defense in-depth além da RLS); (b) POST /api/shares com 404 distinto = enumeração de e-mail (responder genérico); (c) rate limiting nos endpoints de escrita; (d) LGPD: exportação/exclusão de dados + política de privacidade (com copywriter) | backend-dev / frontend-dev / copywriter | Auditoria 13/08 | 📅 backlog (nenhum vazamento real hoje) |
 
 ## 8. Sessões por Agente (task_id para continuidade)
 

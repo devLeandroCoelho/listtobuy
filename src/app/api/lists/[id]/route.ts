@@ -54,6 +54,59 @@ export async function GET(_request: Request, { params }: Params) {
   });
 }
 
+export async function PATCH(request: Request, { params }: Params) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  }
+
+  const { id } = await params;
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (Object.keys(body).length === 0) {
+    return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 });
+  }
+
+  if ('budget' in body) {
+    const budgetValue = body.budget === undefined || body.budget === null ? 0 : Number(body.budget);
+    if (isNaN(budgetValue) || budgetValue < 0) {
+      return NextResponse.json({ error: 'Orçamento deve ser um número positivo' }, { status: 400 });
+    }
+    updates.budget = budgetValue;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 });
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from('lists')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  if (!updated) {
+    return NextResponse.json({ error: 'Lista não encontrada' }, { status: 404 });
+  }
+
+  return NextResponse.json({ list: updated });
+}
+
 export async function DELETE(_request: Request, { params }: Params) {
   const supabase = await createClient();
 

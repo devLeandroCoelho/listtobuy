@@ -368,13 +368,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         setError('Erro ao atualizar item');
       } else {
         if (newStatus === '0') {
-          // Desmarcou: limpa preço do estado
+          // Desmarcou: limpa preço do estado e fecha histórico se estiver aberto
           setPriceInputs((prev) => ({ ...prev, [item.id]: '' }));
           setItems((prev) =>
             prev.map((i) =>
               i.id === item.id ? { ...i, price: null } : i
             )
           );
+          if (showPriceHistory === item.id) {
+            setShowPriceHistory(null);
+          }
         } else {
           // Marcou como comprado: foca automaticamente no input de preço
           setFocusPriceItemId(item.id);
@@ -828,73 +831,71 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   </button>
                 </div>
 
-                {/* Sub-linha de preço — apenas quando comprado */}
-                {isCompleted && (
-                  <div className="flex items-center gap-2 mt-0.5 min-h-11">
-                    {item.price != null ? (
-                      <>
-                        <span
-                          className="text-sm font-medium text-green-700"
-                          aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
-                        >
-                          {formatCurrency(Number(item.price))}
-                        </span>
-                        <button
-                          ref={(el) => {
-                            historyToggleRefs.current[item.id] = el;
-                          }}
-                          onClick={() => togglePriceHistory(item.id)}
-                          className="min-h-11 -my-1.5 px-1.5 text-xs font-medium text-blue-600 underline rounded-lg
-                                     hover:text-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500"
-                          aria-expanded={isHistoryOpen}
-                          aria-controls={`price-history-${item.id}`}
-                          aria-label={isHistoryOpen ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
-                        >
-                          {isHistoryOpen ? 'Ocultar' : 'Histórico'}
-                        </button>
-                      </>
-                    ) : (
-                      /* Input de preço para registrar (compacto) */
-                      <div className="flex items-center gap-2 w-full">
-                        <label
-                          htmlFor={`price-${item.id}`}
-                          className="text-sm text-[var(--app-text-secondary)] whitespace-nowrap"
-                        >
-                          Preço:
-                        </label>
-                        <input
-                          id={`price-${item.id}`}
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          value={currentPrice}
-                          onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleSavePrice(item.id);
-                            }
-                          }}
-                          autoFocus={focusPriceItemId === item.id}
-                          className="w-20 px-2 py-1 text-sm border border-[var(--app-border)] rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          aria-label={`Digite o preço de ${item.name}`}
-                        />
-                        <button
-                          onClick={() => handleSavePrice(item.id)}
-                          disabled={!currentPrice || savingPrice[item.id]}
-                          className="min-h-11 -my-1.5 px-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          aria-label={
-                            savingPrice[item.id]
-                              ? 'Salvando preço...'
-                              : `Salvar preço de ${item.name}`
+                {/* Sub-linha de preço — sempre visível */}
+                <div className="flex items-center gap-2 mt-0.5 min-h-11">
+                  {item.price != null ? (
+                    <>
+                      <span
+                        className="text-sm font-medium text-green-700"
+                        aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
+                      >
+                        {formatCurrency(Number(item.price))}
+                      </span>
+                      <button
+                        ref={(el) => {
+                          historyToggleRefs.current[item.id] = el;
+                        }}
+                        onClick={() => togglePriceHistory(item.id)}
+                        className="min-h-11 -my-1.5 px-1.5 text-xs font-medium text-blue-600 underline rounded-lg
+                                   hover:text-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500"
+                        aria-expanded={isHistoryOpen}
+                        aria-controls={`price-history-${item.id}`}
+                        aria-label={isHistoryOpen ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
+                      >
+                        {isHistoryOpen ? 'Ocultar' : 'Histórico'}
+                      </button>
+                    </>
+                  ) : (
+                    /* Input de preço para registrar (compacto) */
+                    <div className="flex items-center gap-2 w-full">
+                      <label
+                        htmlFor={`price-${item.id}`}
+                        className="text-sm text-[var(--app-text-secondary)] whitespace-nowrap"
+                      >
+                        Preço:
+                      </label>
+                      <input
+                        id={`price-${item.id}`}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={currentPrice}
+                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSavePrice(item.id);
                           }
-                        >
-                          {savingPrice[item.id] ? '...' : 'OK'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                        }}
+                        autoFocus={focusPriceItemId === item.id}
+                        className="w-20 px-2 py-1 text-sm border border-[var(--app-border)] rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        aria-label={`Digite o preço de ${item.name}`}
+                      />
+                      <button
+                        onClick={() => handleSavePrice(item.id)}
+                        disabled={!currentPrice || savingPrice[item.id]}
+                        className="min-h-11 -my-1.5 px-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:visible:ring-2 focus:visible:ring-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label={
+                          savingPrice[item.id]
+                            ? 'Salvando preço...'
+                            : `Salvar preço de ${item.name}`
+                        }
+                      >
+                        {savingPrice[item.id] ? '...' : 'OK'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Ações secundárias — discretas, alvo 44px */}

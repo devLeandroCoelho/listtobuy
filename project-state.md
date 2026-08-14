@@ -52,6 +52,8 @@ Analytics:   a definir
 | List Sharing | 🟢 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
 | Fixes | 🟢 PRs #9, #10, #13 (types/ESLint/CI env), #14 (secrets gitignore), #15 (migration 001), #17 (RLS registro) |
 | Contrato price | 🟢 **PR #60 (fix/56-price-contract, 13/08)** — `price`/`value` normalizado como `number \| null` na fronteira (`normalizePrice` em `src/lib/list-items.ts`, aplicado em `GET/POST /api/prices`); PostgREST devolve NUMERIC como string em numeral alto → soma do orçamento (#56) quebrava por concatenação. Testes: 99/99 (antes 82), tsc 0 erros, lint limpo. Aguardando review do dev-manager |
+| LGPD | 🟢 Issue #140 aberta — adequação em andamento (cookie consent, política de privacidade, termos de uso, direito ao esquecimento, portabilidade) |
+| IA / Receitas | 🟡 **No roadmap (Fase 2)** — feature "Lista com IA": ao criar uma lista, o usuário pode digitar uma receita (ex: "Macarrão a Carbonara") e selecionar "Gerar com IA". O app sugere automaticamente uma lista de ingredientes/itens para comprar e exibe a receita correspondente. A lista gerada pode ser editada antes de salvar. |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
 

@@ -188,7 +188,11 @@ export default function DashboardPage() {
   };
 
   const handleEditList = (list: ListData) => {
+    setEditName(list.name);
+    setEditMonth(list.month);
+    setEditBudget(String(list.budget));
     setEditingList(list);
+    setEditError('');
   };
 
   const handleCloseEditModal = () => {

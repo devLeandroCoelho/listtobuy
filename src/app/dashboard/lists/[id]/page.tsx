@@ -702,7 +702,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       <li
         key={item.id}
         className={`rounded-lg transition-colors duration-150
-          ${isCompleted ? 'bg-green-50/40' : 'hover:bg-gray-50'}`}
+          ${isCompleted ? 'bg-green-50/40' : 'hover:bg-[var(--app-muted)]'}`}
       >
         <div className="flex items-start gap-2 px-1.5 sm:px-2 py-1.5">
           {editingItemId === item.id ? (
@@ -933,7 +933,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               historyPanelRefs.current[item.id] = el;
             }}
             id={`price-history-${item.id}`}
-            className="mx-1.5 sm:mx-2 mb-1.5 rounded-lg border border-gray-200 bg-gray-50/80 p-3"
+            className="mx-1.5 sm:mx-2 mb-1.5 rounded-lg border border-[var(--app-border)] bg-gray-50/80 p-3"
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.preventDefault();
@@ -1159,7 +1159,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             única de itens em mobile E desktop. */}
 
         {/* Lista de itens — box único com linhas planas + dividers (estilo Listonic, D6) */}
-        <div className="bg-[var(--app-surface)] rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="bg-[var(--app-surface)] rounded-xl shadow-sm border border-[var(--app-border)] p-4 sm:p-6">
           {items.length === 0 ? (
             <div className="text-center py-12 text-[var(--app-text-secondary)]">
               <div className="text-4xl mb-3" aria-hidden="true">📝</div>
@@ -1252,7 +1252,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           ItemSuggestions + chip de orçamento (abre o sheet para cima).
           Substitui o footer-accordion de orçamento, o FAB e o form inline
           desktop — entrada única de adição em mobile E desktop. */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-[var(--app-surface)] border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-[var(--app-surface)] border-t border-[var(--app-border)] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <div
           className="max-w-2xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col gap-1.5"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}
@@ -1291,7 +1291,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <button
               ref={budgetChipRef}
               onClick={openBudgetSheet}
-              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-[var(--app-surface)] text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] text-sm font-semibold hover:bg-[var(--app-muted)] transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-expanded={isBudgetSheetOpen}
               aria-controls="budget-sheet"
               aria-haspopup="dialog"

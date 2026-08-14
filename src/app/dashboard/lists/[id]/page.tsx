@@ -128,6 +128,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [listNameValue, setListNameValue] = useState('');
   const [savingListName, setSavingListName] = useState(false);
 
+  // Estado de edição do mês da lista
+  const [editingListMonth, setEditingListMonth] = useState(false);
+  const [listMonthValue, setListMonthValue] = useState('');
+  const [savingListMonth, setSavingListMonth] = useState(false);
+
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
@@ -290,6 +295,63 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const cancelEditingListName = useCallback(() => {
     setListNameValue('');
     setEditingListName(false);
+    setError('');
+  }, []);
+
+  /** Inicia edição do mês da lista */
+  const startEditingListMonth = useCallback(() => {
+    if (!list) return;
+    setListMonthValue(list.month);
+    setEditingListMonth(true);
+  }, [list]);
+
+  /** Salva novo mês da lista (PATCH /api/lists/[id]) */
+  const handleSaveListMonth = useCallback(async () => {
+    const trimmed = listMonthValue.trim();
+    const monthRegex = /^\d{4}-\d{2}$/;
+    if (!monthRegex.test(trimmed)) {
+      setError('Formato de mês inválido. Use YYYY-MM');
+      return;
+    }
+    const [, m] = trimmed.split('-');
+    const monthNum = Number(m);
+    if (monthNum < 1 || monthNum > 12) {
+      setError('Mês inválido. Use um mês entre 01 e 12.');
+      return;
+    }
+
+    if (trimmed === list?.month) {
+      setEditingListMonth(false);
+      return;
+    }
+
+    setSavingListMonth(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ month: trimmed }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar mês');
+      }
+
+      setList((prev) => (prev ? { ...prev, month: data.list.month } : prev));
+      setEditingListMonth(false);
+      showSuccess('Mês da lista atualizado');
+    } catch {
+      setError('Erro ao salvar mês da lista');
+    } finally {
+      setSavingListMonth(false);
+    }
+  }, [id, list, listMonthValue, showSuccess]);
+
+  const cancelEditingListMonth = useCallback(() => {
+    setListMonthValue('');
+    setEditingListMonth(false);
     setError('');
   }, []);
 
@@ -996,6 +1058,48 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     </svg>
                   </button>
                 </div>
+              ) : editingListMonth ? (
+                <div className="flex items-center justify-center gap-2">
+                  <input
+                    type="text"
+                    value={listMonthValue}
+                    onChange={(e) => setListMonthValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void handleSaveListMonth();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelEditingListMonth();
+                      }
+                    }}
+                    placeholder="YYYY-MM"
+                    className="px-2 py-1 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent w-24"
+                    aria-label="Novo mês da lista (YYYY-MM)"
+                    autoFocus
+                    disabled={savingListMonth}
+                  />
+                  <button
+                    onClick={handleSaveListMonth}
+                    disabled={savingListMonth}
+                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                    aria-label="Salvar mês da lista"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={cancelEditingListMonth}
+                    disabled={savingListMonth}
+                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Cancelar edição do mês"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               ) : (
                 <>
                   <h1 className="text-lg font-bold text-gray-900 truncate">
@@ -1027,6 +1131,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+              {!editingListName && !editingListMonth && (
+                <button
+                  onClick={startEditingListMonth}
+                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  aria-label="Editar mês da lista"
+                  title="Editar mês"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              )}
               {!editingListName && (
                 <button
                   onClick={startEditingListName}

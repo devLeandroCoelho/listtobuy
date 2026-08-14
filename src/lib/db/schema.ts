@@ -57,3 +57,16 @@ export const prices = pgTable('prices', {
   month: text('month').notNull(), // Formato: "2026-08"
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+/** Tabela de bug reports — usuários podem reportar bugs diretamente no app */
+export const bugReports = pgTable('bug_reports', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  email: text('email'),
+  category: text('category').notNull().default('bug'),
+  status: text('status').notNull().default('open'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});

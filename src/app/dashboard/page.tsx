@@ -38,6 +38,11 @@ export default function DashboardPage() {
   const [monthSearch, setMonthSearch] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [editingList, setEditingList] = useState<ListData | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editMonth, setEditMonth] = useState('');
+  const [editBudget, setEditBudget] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const router = useRouter();
@@ -220,13 +225,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  // Modal de edição unificada
-  const [editName, setEditName] = useState('');
-  const [editMonth, setEditMonth] = useState('');
-  const [editBudget, setEditBudget] = useState('');
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState('');
 
   const openEditModal = (list: ListData) => {
     setEditName(list.name);

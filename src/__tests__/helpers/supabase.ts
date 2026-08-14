@@ -13,6 +13,10 @@ import { vi, type Mock } from 'vitest';
  *   from('lists').select('*').eq('id', id).single()
  *   from('lists').delete().eq('id', id)
  *   from('items').select(...).order(...).limit(n)[.ilike(...)]
+ *   from('users').select('id').eq('email', email).maybeSingle()
+ *   from('list_shares').select('id').eq('list_id', l).eq('user_id', u).maybeSingle()
+ *   from('list_shares').insert(...).select().single()
+ *   from('list_shares').delete().eq('id', id)
  *
  * Os mocks individuais ficam expostos em `mocks` para asserções
  * (ex.: verificar payloads de insert/delete e o escape de wildcards).
@@ -25,10 +29,14 @@ export interface SupabaseBehavior {
   user?: MockUser;
   /** Resultado de from('lists')...single() (POST e GET por id). Default: { data: null, error: null }. */
   lists?: { data?: unknown; error?: unknown };
+  /** Resultado de from('users')...single()/maybeSingle() (busca por email). Default: { data: null, error: null }. */
+  users?: { data?: unknown; error?: unknown };
   /** Resultado de from('items')...single() (GET lista e suggestions). Default: { data: [], error: null }. */
   items?: { data?: unknown; error?: unknown };
   /** Resultado de from('prices')...single() (GET por item e POST/upsert). Default: { data: [], error: null }. */
   prices?: { data?: unknown; error?: unknown };
+  /** Resultado de from('list_shares')...maybeSingle() (POST shares). Default: { data: null, error: null }. */
+  list_shares?: { data?: unknown; error?: unknown };
   /** Erro retornado por from('lists').delete().eq(). Default: null (sucesso). */
   deleteError?: unknown;
 }
@@ -53,6 +61,16 @@ export interface SupabaseMock {
     itemsDelete: Mock;
     pricesSelect: Mock;
     pricesUpsert: Mock;
+    usersSelect: Mock;
+    usersEq: Mock;
+    usersSingle: Mock;
+    listSharesSelect: Mock;
+    listSharesEq: Mock;
+    listSharesSingle: Mock;
+    listSharesMaybeSingle: Mock;
+    listSharesInsert: Mock;
+    listSharesDelete: Mock;
+    listSharesDeleteEq: Mock;
   };
 }
 
@@ -73,6 +91,16 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   const pricesResult = {
     data: behavior.prices?.data ?? [],
     error: behavior.prices?.error ?? null,
+  };
+
+  const usersResult = {
+    data: behavior.users?.data ?? null,
+    error: behavior.users?.error ?? null,
+  };
+
+  const listSharesResult = {
+    data: behavior.list_shares?.data ?? null,
+    error: behavior.list_shares?.error ?? null,
   };
 
   const deleteError = behavior.deleteError ?? null;
@@ -147,9 +175,35 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
     select: vi.fn().mockReturnValue({ single: pricesUpsertSingle }),
   });
 
+  // Cadeias de `users` (busca por email no POST /api/shares):
+  // from('users').select('id').eq('email', email).maybeSingle()
+  const usersSingle = vi.fn().mockResolvedValue(usersResult);
+  const usersEq = vi.fn(() => ({ single: usersSingle, maybeSingle: usersSingle }));
+  const usersSelect = vi.fn().mockReturnValue({ eq: usersEq });
+
+  // Cadeias de `list_shares` (POST/DELETE /api/shares):
+  // select(...).eq(...).eq(...).maybeSingle() (anti-enumeração/idempotência)
+  // e insert(...).select().single() / delete().eq('id', id)
+  const listSharesSingle = vi.fn().mockResolvedValue(listSharesResult);
+  const listSharesMaybeSingle = vi.fn().mockResolvedValue(listSharesResult);
+  const listSharesEq = vi.fn(() => ({
+    eq: listSharesEq,
+    single: listSharesSingle,
+    maybeSingle: listSharesMaybeSingle,
+  }));
+  const listSharesSelect = vi.fn().mockReturnValue({ eq: listSharesEq });
+  const listSharesInsert = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({ single: listSharesSingle }),
+  });
+  const listSharesDeleteEq = vi.fn().mockResolvedValue({ error: deleteError });
+  const listSharesDelete = vi.fn().mockReturnValue({ eq: listSharesDeleteEq });
+
   const from = vi.fn((table: string) => {
     if (table === 'lists') {
       return { insert, select, update, delete: deleteList };
+    }
+    if (table === 'users') {
+      return { select: usersSelect };
     }
     if (table === 'items') {
       return {
@@ -161,6 +215,14 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
     }
     if (table === 'prices') {
       return { select: pricesSelect, upsert: pricesUpsert };
+    }
+    if (table === 'list_shares') {
+      return {
+        select: listSharesSelect,
+        insert: listSharesInsert,
+        eq: listSharesEq,
+        delete: listSharesDelete,
+      };
     }
     throw new Error(`Tabela não mockada no helper de testes: "${table}"`);
   });
@@ -185,6 +247,16 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
       itemsDelete,
       pricesSelect,
       pricesUpsert,
+      usersSelect,
+      usersEq,
+      usersSingle,
+      listSharesSelect,
+      listSharesEq,
+      listSharesSingle,
+      listSharesMaybeSingle,
+      listSharesInsert,
+      listSharesDelete,
+      listSharesDeleteEq,
     },
   };
 }

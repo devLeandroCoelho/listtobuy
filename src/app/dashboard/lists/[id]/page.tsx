@@ -1004,7 +1004,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
-                className="sm:hidden w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Abrir menu"
                 aria-expanded={isMobileMenuOpen}
                 aria-controls="mobile-menu"
@@ -1143,7 +1143,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       </header>
 
       {/* Conteúdo principal scrollável */}
-      <main className="flex-1 overflow-y-auto mx-auto max-w-2xl px-4 py-6 pb-40 sm:pb-28" role="main">
+      <main className="flex-1 overflow-y-auto px-4 py-6 pb-40 sm:pb-28" role="main">
         {/* Mensagens de estado */}
         {error && (
           <div

@@ -23,14 +23,23 @@ export function LogoMark({ size = 120, variant = 'full', className = '' }: LogoM
         aria-hidden="true"
         focusable="false"
       >
-        {/* Fundo: quadrado arredondado Ink Navy */}
-        <rect width="120" height="120" rx="24" fill="#0B1E2F" />
-        {/* Checkmark Marker Orange, inclinado -12deg */}
-        <g transform="translate(60, 60) rotate(-12) translate(-32, -14)">
+        {/* Fundo Paper White com borda sutil Marker Orange */}
+        <rect width="120" height="120" rx="24" fill="#FDFCFB" stroke="#E85D04" strokeWidth="5" />
+        
+        {/* 3 linhas curvas representando itens de lista */}
+        <g stroke="#0B1E2F" strokeWidth="7" strokeLinecap="round">
+          <path d="M24 36h72" opacity="0.7" />
+          <path d="M24 60h52" opacity="0.85" />
+          <path d="M24 84h64" opacity="0.7" />
+        </g>
+
+        {/* Checkmark Marker Orange no canto inferior direito */}
+        <g transform="translate(78, 78)">
+          <circle cx="22" cy="22" r="22" fill="#E85D04" />
           <path
-            d="M12 48L52 8L62 18L22 58L2 38L12 28L22 38L52 8"
-            stroke="#E85D04"
-            strokeWidth="14"
+            d="M14 22l6 6 12-12"
+            stroke="#FDFCFB"
+            strokeWidth="6"
             strokeLinecap="round"
             strokeLinejoin="round"
             fill="none"

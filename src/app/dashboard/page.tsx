@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { isValidMonth } from '@/lib/month';
 import { LogoMark } from '@/components/LogoMark';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface User {
   id: string;
@@ -270,19 +271,20 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--app-bg)]">
       {/* Header */}
-      <header className="bg-paper-white border-b border-bag-tan">
+      <header className="bg-[var(--app-surface)] border-b border-[var(--app-border)]">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
             <LogoMark size={32} variant="icon" />
-            <span className="text-xl font-bold text-ink-navy font-display">ListToBuy</span>
+            <span className="text-xl font-bold text-[var(--app-text)] font-display">ListToBuy</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-ink-navy/70">Olá, {user?.name}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[var(--app-text-secondary)]">Olá, {user?.name}</span>
+            <ThemeToggle />
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-ink-navy hover:text-marker-orange transition-colors"
+              className="px-4 py-2 text-[var(--app-text)] hover:text-[var(--app-accent)] transition-colors"
               aria-label="Sair da conta"
             >
               Sair
@@ -307,12 +309,12 @@ export default function DashboardPage() {
         )}
 
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Minhas Listas</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text)]">Minhas Listas</h1>
           <div className="flex items-center gap-2">
             <select
               value={archiveFilter}
               onChange={(e) => setArchiveFilter(e.target.value as 'all' | 'active' | 'archived')}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-3 py-2 border border-[var(--app-border)] rounded-lg text-sm bg-[var(--app-surface)] text-[var(--app-text)] focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               aria-label="Filtrar listas por status"
             >
               <option value="active">Ativas</option>
@@ -321,7 +323,7 @@ export default function DashboardPage() {
             </select>
             <Link
               href="/dashboard/lists/new"
-              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium shadow-sm transition-colors"
+              className="px-4 py-2.5 bg-[var(--app-accent)] text-white rounded-xl hover:opacity-90 font-medium shadow-sm transition-colors"
               aria-label="Criar nova lista de compras"
             >
               + Nova Lista
@@ -329,14 +331,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200 shadow-xs">
+        <div className="mb-6 p-4 bg-[var(--app-surface)] rounded-xl border border-[var(--app-border)] shadow-xs">
           <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
               value={nameSearch}
               onChange={(e) => setNameSearch(e.target.value)}
               placeholder="Buscar por nome..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-[var(--app-border)] rounded-lg text-sm bg-[var(--app-bg)] text-[var(--app-text)] focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               aria-label="Buscar lista por nome"
             />
             <input
@@ -344,13 +346,13 @@ export default function DashboardPage() {
               value={monthSearch}
               onChange={(e) => setMonthSearch(e.target.value)}
               placeholder="Filtrar por mês (YYYY-MM)"
-              className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full sm:w-48 px-3 py-2 border border-[var(--app-border)] rounded-lg text-sm bg-[var(--app-bg)] text-[var(--app-text)] focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               aria-label="Filtrar listas por mês"
             />
             {(nameSearch || monthSearch) && (
               <button
                 onClick={() => { setNameSearch(''); setMonthSearch(''); }}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-3 py-2 text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text)] border border-[var(--app-border)] rounded-lg hover:bg-[var(--app-muted)] transition-colors"
                 aria-label="Limpar filtros"
               >
                 Limpar
@@ -361,18 +363,18 @@ export default function DashboardPage() {
 
         {lists.length === 0 ? (
           /* Empty state */
-          <div className="text-center py-16 bg-white rounded-xl border border-gray-200 shadow-xs">
+          <div className="text-center py-16 bg-[var(--app-surface)] rounded-xl border border-[var(--app-border)] shadow-xs">
             <div className="text-6xl mb-4" aria-hidden="true">📝</div>
-            <h2 className="text-xl font-semibold mb-2">
+            <h2 className="text-xl font-semibold mb-2 text-[var(--app-text)]">
               {archiveFilter === 'archived' ? 'Nenhuma lista arquivada' : archiveFilter === 'active' ? 'Nenhuma lista ativa' : 'Nenhuma lista ainda'}
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-[var(--app-text-secondary)] mb-6">
               {archiveFilter === 'archived' ? 'Quando arquivar uma lista, ela aparecerá aqui.' : 'Crie sua primeira lista de compras e comece a economizar.'}
             </p>
             {archiveFilter !== 'archived' && (
               <Link
                 href="/dashboard/lists/new"
-                className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium transition-colors"
+                className="px-6 py-3 bg-[var(--app-accent)] text-white rounded-xl hover:opacity-90 font-medium transition-colors"
                 aria-label="Criar sua primeira lista de compras"
               >
                 Criar Primeira Lista
@@ -385,87 +387,87 @@ export default function DashboardPage() {
             {lists.map((list) => {
               const isArchived = !!list.archived_at;
               return (
-                <div
-                  key={list.id}
-                  className={`bg-white rounded-xl border p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between ${
-                    isArchived ? 'border-gray-300 opacity-75' : 'border-gray-200'
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <Link
-                        href={`/dashboard/lists/${list.id}`}
-                        className={`text-lg font-bold transition-colors truncate ${
-                          isArchived ? 'text-gray-500' : 'text-gray-900 hover:text-blue-600'
-                        }`}
-                      >
-                        {list.name}
-                      </Link>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleEditList(list)}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          aria-label={`Editar lista ${list.name}`}
-                          title="Editar lista"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleToggleArchive(list)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            isArchived
-                              ? 'text-green-600 hover:bg-green-50'
-                              : 'text-gray-400 hover:text-orange-600 hover:bg-orange-50'
-                          }`}
-                          aria-label={isArchived ? `Desarquivar lista ${list.name}` : `Arquivar lista ${list.name}`}
-                          title={isArchived ? 'Desarquivar' : 'Arquivar'}
-                        >
-                          {isArchived ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 01-2-2V3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2M5 8a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2v-9a2 2 0 00-2-2" />
-                            </svg>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleDuplicateList(list)}
-                          disabled={duplicatingId === list.id}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors shrink-0"
-                          aria-label={`Duplicar lista ${list.name}`}
-                          title="Duplicar esta lista"
-                        >
-                          {duplicatingId === list.id ? (
-                            <span className="text-xs">...</span>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <p className={`text-sm capitalize mb-4 ${isArchived ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {formatMonth(list.month)}
-                    </p>
-                  </div>
+                 <div
+                   key={list.id}
+                   className={`bg-[var(--app-surface)] rounded-xl border p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between ${
+                     isArchived ? 'border-[var(--app-border)] opacity-75' : 'border-[var(--app-border)]'
+                   }`}
+                 >
+                   <div>
+                     <div className="flex items-start justify-between gap-2 mb-2">
+                       <Link
+                         href={`/dashboard/lists/${list.id}`}
+                         className={`text-lg font-bold transition-colors truncate ${
+                           isArchived ? 'text-[var(--app-text-secondary)]' : 'text-[var(--app-text)] hover:text-[var(--app-accent)]'
+                         }`}
+                       >
+                         {list.name}
+                       </Link>
+                       <div className="flex items-center gap-1 shrink-0">
+                         <button
+                           onClick={() => handleEditList(list)}
+                           className="p-2 text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] hover:bg-[var(--app-muted)] rounded-lg transition-colors"
+                           aria-label={`Editar lista ${list.name}`}
+                           title="Editar lista"
+                         >
+                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                           </svg>
+                         </button>
+                         <button
+                           onClick={() => handleToggleArchive(list)}
+                           className={`p-2 rounded-lg transition-colors ${
+                             isArchived
+                               ? 'text-[var(--app-success)] hover:bg-[var(--app-muted)]'
+                               : 'text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] hover:bg-[var(--app-muted)]'
+                           }`}
+                           aria-label={isArchived ? `Desarquivar lista ${list.name}` : `Arquivar lista ${list.name}`}
+                           title={isArchived ? 'Desarquivar' : 'Arquivar'}
+                         >
+                           {isArchived ? (
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                             </svg>
+                           ) : (
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 01-2-2V3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2M5 8a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2v-9a2 2 0 00-2-2" />
+                             </svg>
+                           )}
+                         </button>
+                         <button
+                           onClick={() => handleDuplicateList(list)}
+                           disabled={duplicatingId === list.id}
+                           className="p-2 text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] hover:bg-[var(--app-muted)] rounded-lg transition-colors shrink-0"
+                           aria-label={`Duplicar lista ${list.name}`}
+                           title="Duplicar esta lista"
+                         >
+                           {duplicatingId === list.id ? (
+                             <span className="text-xs">...</span>
+                           ) : (
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                             </svg>
+                           )}
+                         </button>
+                       </div>
+                     </div>
+                     <p className={`text-sm capitalize mb-4 ${isArchived ? 'text-[var(--app-text-secondary)]' : 'text-[var(--app-text-secondary)]'}`}>
+                       {formatMonth(list.month)}
+                     </p>
+                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100 text-sm">
-                    <span className={`font-medium ${isArchived ? 'text-gray-400' : 'text-gray-600'}`}>
-                      Orçamento: {Number(list.budget) > 0 ? `R$ ${Number(list.budget).toFixed(2)}` : 'Não definido'}
-                    </span>
-                    <Link
-                      href={`/dashboard/lists/${list.id}`}
-                      className={`font-semibold ${isArchived ? 'text-gray-400' : 'text-blue-600 hover:underline'}`}
-                    >
-                      Ver Lista →
-                    </Link>
-                  </div>
-                </div>
+                   <div className="flex items-center justify-between pt-4 border-t border-[var(--app-border)] text-sm">
+                     <span className={`font-medium ${isArchived ? 'text-[var(--app-text-secondary)]' : 'text-[var(--app-text)]'}`}>
+                       Orçamento: {Number(list.budget) > 0 ? `R$ ${Number(list.budget).toFixed(2)}` : 'Não definido'}
+                     </span>
+                     <Link
+                       href={`/dashboard/lists/${list.id}`}
+                       className={`font-semibold ${isArchived ? 'text-[var(--app-text-secondary)]' : 'text-[var(--app-accent)] hover:underline'}`}
+                     >
+                       Ver Lista →
+                     </Link>
+                   </div>
+                 </div>
               );
             })}
           </div>

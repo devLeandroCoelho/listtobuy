@@ -12,6 +12,38 @@
 }
 
 /* ============================================
+   ListToBuy — Temas claro / escuro
+   ============================================ */
+
+:root,
+[data-theme='light'] {
+  --app-bg: #FDFCFB;
+  --app-surface: #ffffff;
+  --app-text: #0B1E2F;
+  --app-text-secondary: #4b5d6e;
+  --app-border: #D4A373;
+  --app-accent: #E85D04;
+  --app-success: #2D6A4F;
+  --app-muted: #f5efe6;
+}
+
+[data-theme='dark'] {
+  --app-bg: #0B1E2F;
+  --app-surface: #112D44;
+  --app-text: #FDFCFB;
+  --app-text-secondary: #c9d4df;
+  --app-border: #1E3A5F;
+  --app-accent: #FB923C;
+  --app-success: #4ADE80;
+  --app-muted: #142f45;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+}
+
+/* ============================================
    ListToBuy — Estilos globais
    ============================================ */
 

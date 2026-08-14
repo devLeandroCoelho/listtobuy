@@ -74,6 +74,7 @@ Analytics:   a definir
 | Arquivo | Propósito | Notas |
 |---|---|---|
 | `docs/especificacao.md` | Definição do produto (decisões da entrevista) | Fonte da verdade de produto |
+| `docs/arquitetura.md` | Arquitetura do MVP (tech-lead Ivan, 03/08/2026 — seções 0-13, ADR-1..7) | **Recuperado 14/08** do clone órfão `projetos/lista-de-mercado` (reconciliado/removido na ronda do github-manager; único conteúdo exclusivo do clone) |
 | `ROADMAP.md` | Fases e entregas planejadas | |
 | `project-state.md` | Memória canônica do projeto | Este arquivo |
 | `README.md` | Vitrine pública do projeto (pt-BR, tom comercial) | Criado em 03/08/2026 — pronto para o repo público |

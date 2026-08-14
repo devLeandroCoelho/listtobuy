@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializeItem } from '@/lib/list-items';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * PUT /api/lists/[id]/items/[itemId] — Edita um item (body parcial).
@@ -24,6 +25,10 @@ export async function PUT(request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: atualização de item (60/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['items:update']);
+  if (limited) return limited;
 
   const { id, itemId } = await params;
   const body = await request.json();
@@ -118,6 +123,10 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: exclusão de item (60/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['items:delete']);
+  if (limited) return limited;
 
   const { id, itemId } = await params;
 

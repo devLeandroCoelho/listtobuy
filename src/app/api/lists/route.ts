@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/lists — Cria uma nova lista de compras.
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: criação de lista (30/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['lists:create']);
+  if (limited) return limited;
 
   const body = await request.json();
   const { name, month, budget } = body;

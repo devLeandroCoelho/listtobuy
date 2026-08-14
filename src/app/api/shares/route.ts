@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/shares — Compartilhar lista com usuário.
@@ -15,6 +16,10 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: compartilhamento (10/min — protege contra enumeração de e-mail, #76)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['shares:create']);
+  if (limited) return limited;
 
   const body = await request.json();
   const { list_id, email, permission = 'view' } = body;
@@ -112,6 +117,10 @@ export async function DELETE(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: remoção de compartilhamento (10/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['shares:delete']);
+  if (limited) return limited;
 
   const { searchParams } = new URL(request.url);
   const shareId = searchParams.get('id');

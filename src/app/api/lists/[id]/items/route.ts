@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializeItem } from '@/lib/list-items';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/lists/[id]/items — Adiciona um item a uma lista.
@@ -22,6 +23,10 @@ export async function POST(request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: criação de item (60/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['items:create']);
+  if (limited) return limited;
 
   const { id } = await params;
 

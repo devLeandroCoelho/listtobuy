@@ -3,6 +3,7 @@ import { Space_Grotesk, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/goog
 import './globals.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { A2HSBanner } from '@/components/A2HSBanner';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] antialiased font-body">
         {children}
         <OfflineIndicator />
+        <A2HSBanner />
       </body>
     </html>
   );

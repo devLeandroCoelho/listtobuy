@@ -140,9 +140,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado de histórico de preços
   const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
 
-  // Estado do sheet de orçamento (expande para cima a partir da barra)
-  const [isBudgetSheetOpen, setIsBudgetSheetOpen] = useState(false);
-
   // Estado de recolhimento da seção de Comprados (colapsada por padrão)
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
 
@@ -647,7 +644,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Item comprado sem preço não soma, mas não quebra o cálculo.
   const totalSpent = sumCompletedSpent(items);
   const budget = Number(list?.budget ?? 0);
-  const remaining = budget - totalSpent;
 
   /** Renderiza cada linha de item da lista (reutilizado nas seções de pendentes e comprados).
    *  Layout compacto estilo Listonic (D6/D7/D5): círculo 44px para marcar comprado, nome truncado,
@@ -1248,7 +1244,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </form>
 
-            {/* Chip de orçamento — trigger do modal de edição unificada */}
+            {/* Chip de orçamento — mostra gasto total e orçamento total */}
             <button
               onClick={openEditModal}
               className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
@@ -1257,11 +1253,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               title="Editar lista"
             >
               <span aria-hidden="true">💰</span>
-              <span className={budget > 0 ? (remaining < 0 ? 'text-red-700' : 'text-green-700') : 'text-gray-700'}>
+              <span className="text-gray-700">
                 {budget > 0 ? (
                   <>
-                    {remaining >= 0 && <span className="hidden sm:inline text-xs font-medium">Ainda: </span>}
-                    {formatCurrency(remaining)}
+                    <span className="hidden sm:inline text-xs font-medium">Orçamento: </span>
+                    <span className="text-green-700">{formatCurrency(budget)}</span>
+                    <span className="mx-1 text-gray-400">·</span>
+                    <span className="text-amber-700">Gasto: {formatCurrency(totalSpent)}</span>
                   </>
                 ) : (
                   <span className="text-xs font-medium">Definir orçamento</span>
@@ -1269,23 +1267,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </span>
               <span className="sr-only">
                 {budget > 0
-                  ? remaining < 0
-                    ? `Estourou em ${formatCurrency(Math.abs(remaining))}`
-                    : `Ainda tem para gastar: ${formatCurrency(remaining)}`
+                  ? `Orçamento ${formatCurrency(budget)}, gasto ${formatCurrency(totalSpent)}`
                   : 'Definir orçamento'}
               </span>
-              <svg
-                aria-hidden="true"
-                focusable="false"
-                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                  isBudgetSheetOpen ? 'rotate-180' : ''
-                }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
             </button>
           </div>
         </div>

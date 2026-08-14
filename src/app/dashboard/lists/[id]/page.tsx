@@ -989,30 +989,30 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       {/* Header sticky único (D1/D2): "← Voltar", nome + mês curto, trigger do resumo,
           excluir e miniStatus "x de y · %" (D10). Resumo vira accordion colapsado por
           padrão (padrão #54) — contagem/progresso/data ficam SÓ aqui (redundância zero). */}
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm" role="banner">
+      <header className="sticky top-0 z-30 bg-[var(--app-surface)] border-b border-[var(--app-border)] shadow-sm" role="banner">
         <div className="mx-auto max-w-2xl px-4">
           {/* Linha 1 */}
           <div className="flex items-center justify-between gap-2 min-h-14">
             <Link
               href="/dashboard"
-              className="min-h-11 flex items-center gap-1 text-gray-600 hover:text-gray-900 text-base shrink-0"
+              className="min-h-11 flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] text-base shrink-0"
               aria-label="Voltar ao painel"
             >
               ← Voltar
             </Link>
             <div className="flex-1 min-w-0 text-center">
-              <h1 className="text-lg font-bold text-gray-900 truncate">
+              <h1 className="text-lg font-bold text-[var(--app-text)] truncate">
                 {list.name}
-                <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
+                <span className="hidden sm:inline text-sm font-normal text-[var(--app-text-secondary)]"> · {formatMonthShort(list.month)}</span>
               </h1>
-              <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
+              <p className="hidden sm:block text-xs text-[var(--app-text-secondary)]" aria-live="polite">
                 {miniStatus}
               </p>
             </div>
             <div className="flex items-center shrink-0">
               <button
                 onClick={() => setIsSummaryCollapsed((prev) => !prev)}
-                className="hidden sm:flex w-11 h-11 items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="hidden sm:flex w-11 h-11 items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
                 aria-expanded={!isSummaryCollapsed}
                 aria-controls="list-summary"
                 aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}

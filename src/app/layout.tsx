@@ -4,7 +4,6 @@ import './globals.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { A2HSBanner } from '@/components/A2HSBanner';
-import { BugReportButton } from '@/components/BugReportButton';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -52,10 +51,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR" className={`${spaceGrotesk.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] antialiased font-body">
-        {children}
-        <OfflineIndicator />
-        <A2HSBanner />
-        <BugReportButton />
+      {children}
+      <OfflineIndicator />
+      <A2HSBanner />
       </body>
     </html>
   );

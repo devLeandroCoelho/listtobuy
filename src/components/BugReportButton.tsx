@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface BugReportData {
   title: string;
@@ -9,8 +9,26 @@ interface BugReportData {
   category: 'bug' | 'suggestion' | 'other';
 }
 
-export function BugReportButton() {
-  const [isOpen, setIsOpen] = useState(false);
+interface BugReportButtonProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function BugReportButton({ open, onOpenChange }: BugReportButtonProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
+
+  const setIsOpen = useCallback(
+    (value: boolean) => {
+      if (!isControlled) {
+        setInternalOpen(value);
+      }
+      onOpenChange?.(value);
+    },
+    [isControlled, onOpenChange]
+  );
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -71,15 +89,16 @@ export function BugReportButton() {
 
   return (
     <>
-      {/* Botão flutuante */}
-      <button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-[var(--app-accent)] text-white rounded-full shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
-        aria-label="Reportar bug"
-        title="Reportar bug"
-      >
-        <span className="text-2xl" aria-hidden="true">🐛</span>
-      </button>
+      {!isControlled && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-24 right-6 z-30 w-14 h-14 bg-[var(--app-accent)] text-white rounded-full shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
+          aria-label="Reportar bug"
+          title="Reportar bug"
+        >
+          <span className="text-2xl" aria-hidden="true">🐛</span>
+        </button>
+      )}
 
       {/* Modal */}
       {isOpen && (

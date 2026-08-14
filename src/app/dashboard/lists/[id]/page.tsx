@@ -11,6 +11,7 @@ import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categori
 import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
 import { sumCompletedSpent } from '@/lib/budget';
 import { buildQuickAddPayload } from '@/lib/list-items';
+import { BugReportButton } from '@/components/BugReportButton';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -148,6 +149,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Estado de recolhimento do resumo no header sticky (colapsado por padrão)
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(true);
+
+  // Estado do menu mobile (drawer)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Estado do modal de bug controlado localmente
+  const [isBugModalOpen, setIsBugModalOpen] = useState(false);
 
   // Refs p/ foco e scroll do painel de histórico inline (D5)
   const historyToggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -986,7 +993,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32 sm:pb-24">
+    <div className="h-screen flex flex-col bg-[var(--app-bg)]">
       {/* Header sticky único (D1/D2): "← Voltar", nome + mês curto, trigger do resumo,
           excluir e miniStatus "x de y · %" (D10). Resumo vira accordion colapsado por
           padrão (padrão #54) — contagem/progresso/data ficam SÓ aqui (redundância zero). */}
@@ -994,13 +1001,26 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         <div className="mx-auto max-w-2xl px-4">
           {/* Linha 1 */}
           <div className="flex items-center justify-between gap-2 min-h-14">
-            <Link
-              href="/dashboard"
-              className="min-h-11 flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] text-base shrink-0"
-              aria-label="Voltar ao painel"
-            >
-              ← Voltar
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="sm:hidden w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Abrir menu"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <Link
+                href="/dashboard"
+                className="min-h-11 hidden sm:flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] text-base shrink-0"
+                aria-label="Voltar ao painel"
+              >
+                ← Voltar
+              </Link>
+            </div>
             <div className="flex-1 min-w-0 text-center">
               <h1 className="text-lg font-bold text-[var(--app-text)] truncate">
                 {list.name}
@@ -1122,8 +1142,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </header>
 
-      {/* Conteúdo principal */}
-      <main className="container mx-auto px-4 py-6 max-w-2xl" role="main">
+      {/* Conteúdo principal scrollável */}
+      <main className="flex-1 overflow-y-auto mx-auto max-w-2xl px-4 py-6 pb-40 sm:pb-28" role="main">
         {/* Mensagens de estado */}
         {error && (
           <div
@@ -1461,6 +1481,50 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
       )}
+
+      {/* Drawer menu mobile */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} aria-hidden="true" />
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[80%] bg-[var(--app-surface)] shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-[var(--app-border)]">
+              <h2 id="mobile-menu-title" className="text-base font-bold text-[var(--app-text)]">Menu</h2>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors"
+                aria-label="Fechar menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); openEditModal(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
+              >
+                <span>✏️</span> Editar lista
+              </button>
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); handleDeleteList(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-red-700 hover:bg-red-50 transition-colors"
+              >
+                <span>🗑️</span> Excluir lista
+              </button>
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); setIsBugModalOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
+              >
+                <span>🐛</span> Reportar bug
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bug report controlado (sem FAB global) */}
+      <BugReportButton open={isBugModalOpen} onOpenChange={setIsBugModalOpen} />
     </div>
   );
 }

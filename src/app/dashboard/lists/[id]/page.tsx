@@ -713,7 +713,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-base
+                  className="flex-1 min-w-0 px-3 py-2 border border-[var(--app-border)] rounded-lg text-base
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   aria-label="Nome do item"
                   autoFocus={editFocusField !== 'qty'}
@@ -730,7 +730,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="w-11 h-11 shrink-0 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label="Cancelar edição"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -745,7 +745,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   onChange={(e) => setEditQty(e.target.value)}
                   min="0.01"
                   step="0.01"
-                  className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
+                  className="w-20 px-2 py-2 border border-[var(--app-border)] rounded-lg text-base text-center
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   aria-label="Quantidade"
                   autoFocus={editFocusField === 'qty'}
@@ -753,8 +753,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <select
                   value={editUnit}
                   onChange={(e) => setEditUnit(e.target.value)}
-                  className="px-2 py-2 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="px-2 py-2 border border-[var(--app-border)] rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--app-surface)]"
                   aria-label="Unidade"
                 >
                   {UNIT_OPTIONS.map((opt) => (
@@ -766,8 +766,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <select
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
-                  className="flex-1 min-w-[180px] px-2 py-2 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="flex-1 min-w-[180px] px-2 py-2 border border-[var(--app-border)] rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--app-surface)]"
                   aria-label="Seção / Categoria no mercado"
                 >
                   <option value="">Sem categoria (detectar pelo nome)</option>
@@ -789,7 +789,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2
                   ${isCompleted
                     ? 'bg-green-500 border-green-500 text-white'
-                    : 'border-gray-300 hover:border-green-500'
+                    : 'border-[var(--app-border)] hover:border-green-500'
                   }`}
                 aria-label={
                   isCompleted
@@ -810,7 +810,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`flex-1 min-w-0 truncate text-base font-medium ${
-                      isCompleted ? 'line-through text-gray-500' : 'text-gray-900'
+                      isCompleted ? 'line-through text-[var(--app-text-secondary)]' : 'text-[var(--app-text)]'
                     }`}
                   >
                     <span className="mr-1 text-xs opacity-75" aria-hidden="true">{cat.icon}</span>
@@ -820,7 +820,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <button
                     onClick={() => startEdit(item, 'qty')}
                     className="shrink-0 min-h-11 -my-1.5 px-1.5 flex items-center rounded-lg
-                               text-sm font-semibold text-gray-700 hover:bg-gray-100
+                               text-sm font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)]
                                focus-visible:ring-2 focus-visible:ring-blue-500"
                     aria-label={`Quantidade ${item.quantity} ${item.unit}; toque para editar ${item.name}`}
                   >
@@ -858,7 +858,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       <div className="flex items-center gap-2 w-full">
                         <label
                           htmlFor={`price-${item.id}`}
-                          className="text-sm text-gray-600 whitespace-nowrap"
+                          className="text-sm text-[var(--app-text-secondary)] whitespace-nowrap"
                         >
                           Preço:
                         </label>
@@ -876,7 +876,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                             }
                           }}
                           autoFocus={focusPriceItemId === item.id}
-                          className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-20 px-2 py-1 text-sm border border-[var(--app-border)] rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                           aria-label={`Digite o preço de ${item.name}`}
                         />
                         <button
@@ -942,10 +942,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             }}
           >
             <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-sm font-semibold text-gray-700">📊 Histórico — {item.name}</p>
+              <p className="text-sm font-semibold text-[var(--app-text-secondary)]">📊 Histórico — {item.name}</p>
               <button
                 onClick={() => closePriceHistory(item.id)}
-                className="min-h-11 -my-1.5 px-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg
+                className="min-h-11 -my-1.5 px-1.5 text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text)] rounded-lg
                            focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Fechar histórico de preços"
               >
@@ -962,7 +962,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Carregando">
-        <div className="text-gray-600 text-base">Carregando lista...</div>
+        <div className="text-[var(--app-text-secondary)] text-base">Carregando lista...</div>
       </div>
     );
   }
@@ -971,7 +971,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 text-base mb-4">Lista não encontrada</p>
+          <p className="text-[var(--app-text-secondary)] text-base mb-4">Lista não encontrada</p>
           <Link
             href="/dashboard"
             className="text-blue-600 hover:underline text-base"
@@ -1056,7 +1056,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <div className="sm:hidden flex items-center gap-2 min-h-11 border-t border-gray-100">
             <button
               onClick={() => setIsSummaryCollapsed((prev) => !prev)}
-              className="flex-1 min-h-11 flex items-center gap-2 text-left text-sm text-gray-600 hover:text-gray-900 transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="flex-1 min-h-11 flex items-center gap-2 text-left text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text)] transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-expanded={!isSummaryCollapsed}
               aria-controls="list-summary"
               aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
@@ -1081,25 +1081,25 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
           {/* Linha 3: resumo colapsável (accordion #54) */}
           <div id="list-summary" hidden={isSummaryCollapsed} className="border-t border-gray-100 py-4">
-            <p className="text-sm text-gray-600 mb-3">{formatMonth(list.month)}</p>
+            <p className="text-sm text-[var(--app-text-secondary)] mb-3">{formatMonth(list.month)}</p>
             <div className="grid grid-cols-3 gap-3 text-center" role="region" aria-label="Resumo da lista">
               <div>
-                <div className="text-lg font-bold text-gray-900" aria-label={`${totalItems} itens no total`}>
+                <div className="text-lg font-bold text-[var(--app-text)]" aria-label={`${totalItems} itens no total`}>
                   {totalItems}
                 </div>
-                <div className="text-xs text-gray-600">Total</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Total</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-green-700" aria-label={`${completedItems} itens comprados`}>
                   {completedItems}
                 </div>
-                <div className="text-xs text-gray-600">Comprados</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Comprados</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-amber-700" aria-label={`${pendingItems} itens pendentes`}>
                   {pendingItems}
                 </div>
-                <div className="text-xs text-gray-600">Pendentes</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Pendentes</div>
               </div>
             </div>
             {totalItems > 0 && (
@@ -1159,9 +1159,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             única de itens em mobile E desktop. */}
 
         {/* Lista de itens — box único com linhas planas + dividers (estilo Listonic, D6) */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="bg-[var(--app-surface)] rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
           {items.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-[var(--app-text-secondary)]">
               <div className="text-4xl mb-3" aria-hidden="true">📝</div>
               <p className="text-base">Nenhum item ainda. Adicione o primeiro!</p>
             </div>
@@ -1188,7 +1188,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       items.filter((item) => item.completed === '0')
                     ).map((group) => (
                       <div key={group.categoryId} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                        <h3 className="text-xs font-bold text-[var(--app-text-secondary)] uppercase tracking-wider flex items-center gap-1.5 pt-1">
                           <span aria-hidden="true">{group.icon}</span> {group.name} ({group.items.length})
                         </h3>
                         <ul className="divide-y divide-gray-100" role="list" aria-label={`Itens pendentes de ${group.name}`}>
@@ -1206,14 +1206,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="pt-4">
                   <button
                     onClick={() => setIsCompletedCollapsed((prev) => !prev)}
-                    className="w-full flex items-center justify-between min-h-[44px] text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    className="w-full flex items-center justify-between min-h-[44px] text-left font-semibold text-[var(--app-text-secondary)] hover:text-[var(--app-text)] transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     aria-expanded={!isCompletedCollapsed}
                     aria-controls="completed-items-list"
                   >
                     <span className="flex items-center gap-2 text-base">
                       <span>✅</span> Comprados ({completedItems})
                     </span>
-                    <span className="text-sm text-gray-500 flex items-center gap-1 font-normal">
+                    <span className="text-sm text-[var(--app-text-secondary)] flex items-center gap-1 font-normal">
                       {isCompletedCollapsed ? 'Mostrar' : 'Ocultar'}
                       <svg
                         aria-hidden="true"
@@ -1252,7 +1252,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           ItemSuggestions + chip de orçamento (abre o sheet para cima).
           Substitui o footer-accordion de orçamento, o FAB e o form inline
           desktop — entrada única de adição em mobile E desktop. */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-[var(--app-surface)] border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <div
           className="max-w-2xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col gap-1.5"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}
@@ -1291,7 +1291,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <button
               ref={budgetChipRef}
               onClick={openBudgetSheet}
-              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-[var(--app-surface)] text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-expanded={isBudgetSheetOpen}
               aria-controls="budget-sheet"
               aria-haspopup="dialog"
@@ -1299,7 +1299,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               title="Ver resumo do orçamento"
             >
               <span aria-hidden="true">💰</span>
-              <span className="text-gray-700">
+              <span className="text-[var(--app-text-secondary)]">
                 {budget > 0 ? (
                   <span className="text-amber-700">Gasto: {formatCurrency(totalSpent)}</span>
                 ) : (
@@ -1344,15 +1344,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             ref={budgetSheetRef}
             tabIndex={-1}
             onKeyDown={handleBudgetSheetKeyDown}
-            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
+            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-[var(--app-surface)] rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
           >
             <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 shrink-0">
-              <h2 id="budget-sheet-title" className="text-lg font-semibold text-gray-900">
+              <h2 id="budget-sheet-title" className="text-lg font-semibold text-[var(--app-text)]">
                 Orçamento
               </h2>
               <button
                 onClick={closeBudgetSheet}
-                className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Fechar orçamento"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -1371,17 +1371,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeEditModal}>
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
+            className="bg-[var(--app-surface)] rounded-xl shadow-xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="edit-list-title"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 id="edit-list-title" className="text-lg font-bold text-gray-900">Editar Lista</h2>
+              <h2 id="edit-list-title" className="text-lg font-bold text-[var(--app-text)]">Editar Lista</h2>
               <button
                 onClick={closeEditModal}
-                className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Fechar edição"
                 title="Fechar edição"
               >
@@ -1397,27 +1397,27 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="edit-list-name" className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                <label htmlFor="edit-list-name" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Nome</label>
                 <input
                   id="edit-list-name"
                   type="text"
                   value={editListName}
                   onChange={(e) => setEditListName(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label htmlFor="edit-list-month" className="block text-sm font-medium text-gray-700 mb-1">Mês (YYYY-MM)</label>
+                <label htmlFor="edit-list-month" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Mês (YYYY-MM)</label>
                 <input
                   id="edit-list-month"
                   type="text"
                   value={editListMonth}
                   onChange={(e) => setEditListMonth(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label htmlFor="edit-list-budget" className="block text-sm font-medium text-gray-700 mb-1">Orçamento (R$)</label>
+                <label htmlFor="edit-list-budget" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Orçamento (R$)</label>
                 <input
                   id="edit-list-budget"
                   type="number"
@@ -1425,7 +1425,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   onChange={(e) => setEditListBudget(e.target.value)}
                   min="0"
                   step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -1434,7 +1434,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               <button
                 type="button"
                 onClick={handleArchiveFromModal}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="px-4 py-2 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 {list?.archived_at ? 'Desarquivar' : 'Arquivar'}
               </button>
@@ -1443,7 +1443,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   type="button"
                   onClick={closeEditModal}
                   disabled={editListSaving}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="px-4 py-2 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 >
                   Cancelar
                 </button>

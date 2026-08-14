@@ -121,15 +121,15 @@ export default function NewListPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Carregando">
-        <div className="text-gray-600 text-base">Carregando...</div>
+        <div className="text-[var(--app-text-secondary)] text-base">Carregando...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[var(--app-bg)]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200" role="banner">
+      <header className="bg-[var(--app-surface)] border-b border-[var(--app-border)]" role="banner">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-2xl" aria-hidden="true">🛒</span>
@@ -138,7 +138,7 @@ export default function NewListPage() {
           <nav aria-label="Navegação do usuário">
             <Link
               href="/dashboard"
-              className="text-gray-600 hover:text-gray-900 text-base"
+              className="text-[var(--app-text-secondary)] hover:text-[var(--app-text)] text-base"
               aria-label="Voltar para o painel"
             >
               ← Voltar
@@ -164,14 +164,14 @@ export default function NewListPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6"
+          className="bg-[var(--app-surface)] rounded-xl shadow-sm border border-[var(--app-border)] p-6 space-y-6"
           noValidate
         >
           {/* Campo: Nome da Lista */}
           <div>
             <label
               htmlFor="list-name"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1"
             >
               Nome da Lista <span className="text-red-500" aria-hidden="true">*</span>
             </label>
@@ -181,15 +181,15 @@ export default function NewListPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Compras de Agosto"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         placeholder:text-gray-400"
+              className="w-full px-4 py-3 border border-[var(--app-border)] rounded-lg text-base
+                         focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent
+                         placeholder:text-[var(--app-text-secondary)]"
               required
               aria-required="true"
               aria-describedby="list-name-help"
               autoComplete="off"
             />
-            <p id="list-name-help" className="mt-1 text-sm text-gray-500">
+            <p id="list-name-help" className="mt-1 text-sm text-[var(--app-text-secondary)]">
               Exemplo: &quot;Compras do Mês&quot;, &quot;Feira da Semana&quot;
             </p>
           </div>
@@ -198,7 +198,7 @@ export default function NewListPage() {
           <div>
             <label
               htmlFor="list-month"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1"
             >
               Mês de Referência <span className="text-red-500" aria-hidden="true">*</span>
             </label>
@@ -206,9 +206,9 @@ export default function NewListPage() {
               id="list-month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         bg-white"
+              className="w-full px-4 py-3 border border-[var(--app-border)] rounded-lg text-base
+                         focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent
+                         bg-[var(--app-surface)]"
               required
               aria-required="true"
             >
@@ -224,7 +224,7 @@ export default function NewListPage() {
           <div>
             <label
               htmlFor="list-budget"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1"
             >
               Orçamento Mensal (R$)
             </label>
@@ -236,12 +236,12 @@ export default function NewListPage() {
               placeholder="0,00"
               min="0"
               step="0.01"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         placeholder:text-gray-400"
+              className="w-full px-4 py-3 border border-[var(--app-border)] rounded-lg text-base
+                         focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent
+                         placeholder:text-[var(--app-text-secondary)]"
               aria-describedby="list-budget-help"
             />
-            <p id="list-budget-help" className="mt-1 text-sm text-gray-500">
+            <p id="list-budget-help" className="mt-1 text-sm text-[var(--app-text-secondary)]">
               Quanto você pretende gastar este mês? (opcional)
             </p>
           </div>
@@ -251,8 +251,8 @@ export default function NewListPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 py-3 px-6 bg-blue-600 text-white rounded-lg text-base font-medium
-                         hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+              className="flex-1 py-3 px-6 bg-[var(--app-accent)] text-white rounded-lg text-base font-medium
+                         hover:opacity-90 focus:ring-2 focus:ring-[var(--app-accent)] focus:ring-offset-2
                          disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors duration-150"
               aria-label={submitting ? 'Criando lista...' : 'Criar nova lista'}
@@ -272,8 +272,8 @@ export default function NewListPage() {
 
             <Link
               href="/dashboard"
-              className="py-3 px-6 border border-gray-300 text-gray-700 rounded-lg text-base font-medium
-                         hover:bg-gray-50 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
+              className="py-3 px-6 border border-[var(--app-border)] text-[var(--app-text-secondary)] rounded-lg text-base font-medium
+                         hover:bg-[var(--app-bg)] focus:ring-2 focus:ring-[var(--app-border)] focus:ring-offset-2
                          transition-colors duration-150 text-center"
               aria-label="Cancelar e voltar ao painel"
             >

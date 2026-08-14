@@ -248,7 +248,7 @@ export default function Home() {
             </p>
             <Link
               href="/register"
-              className="inline-block px-8 py-3 bg-white text-[var(--app-accent)] rounded-xl hover:bg-gray-100 text-lg font-medium shadow-sm transition-colors"
+              className="inline-block px-8 py-3 bg-[var(--app-surface)] text-[var(--app-accent)] rounded-xl hover:bg-[var(--app-muted)] text-lg font-medium shadow-sm transition-colors"
               aria-label="Criar conta gratuita agora"
             >
               Começar Grátis Agora

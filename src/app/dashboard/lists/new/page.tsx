@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 /**
  * Página de criação de lista de compras.
@@ -40,6 +41,7 @@ export default function NewListPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const isOnline = useOnlineStatus();
 
   // Campos do formulário
   const [name, setName] = useState('');
@@ -56,21 +58,33 @@ export default function NewListPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
 
-      if (!authUser) {
-        router.push('/login');
-        return;
+        if (!authUser) {
+          if (isOnline) {
+            router.push('/login');
+            return;
+          }
+          setLoading(false);
+          return;
+        }
+
+        setUser({ id: authUser.id, name: authUser.email?.split('@')[0] || 'Usuário' });
+        setLoading(false);
+      } catch {
+        if (isOnline) {
+          router.push('/login');
+          return;
+        }
+        setLoading(false);
       }
-
-      setUser({ id: authUser.id, name: authUser.email?.split('@')[0] || 'Usuário' });
-      setLoading(false);
     };
 
     checkAuth();
-  }, [supabase, router]);
+  }, [supabase, router, isOnline]);
 
   /** Envia formulário de criação de lista */
   const handleSubmit = async (e: React.FormEvent) => {

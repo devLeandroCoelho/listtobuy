@@ -80,7 +80,7 @@ export function PriceHistory({ itemId, itemName }: PriceHistoryProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow p-4">
+    <div className="bg-[var(--app-surface)] rounded-xl shadow p-4">
       <h3 className="font-semibold mb-3" aria-label={`Histórico de preços de ${itemName}`}>
         📊 Histórico — {itemName}
       </h3>

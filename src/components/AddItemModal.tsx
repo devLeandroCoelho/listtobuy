@@ -113,14 +113,14 @@ export function AddItemModal({
       />
 
       {/* Conteúdo do Modal (Slide-up no Mobile) */}
-      <div className="relative w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-xl p-6 z-10 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
+      <div className="relative w-full max-w-lg bg-[var(--app-surface)] rounded-t-2xl sm:rounded-2xl shadow-xl p-6 z-10 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
         <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
-          <h2 id="modal-title" className="text-xl font-bold text-gray-900 flex items-center gap-2">
+          <h2 id="modal-title" className="text-xl font-bold text-[var(--app-text)] flex items-center gap-2">
             <span>➕</span> Novo Item
           </h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 text-[var(--app-text-secondary)] hover:text-[var(--app-text-secondary)] rounded-full hover:bg-[var(--app-muted)] transition-colors"
             aria-label="Fechar modal"
             title="Fechar modal"
           >
@@ -139,7 +139,7 @@ export function AddItemModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Nome do Item */}
           <div>
-            <label htmlFor="modal-item-name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="modal-item-name" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">
               Nome do Item *
             </label>
             <ItemSuggestions
@@ -155,7 +155,7 @@ export function AddItemModal({
           {/* Quantidade e Unidade */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="modal-item-qty" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="modal-item-qty" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">
                 Quantidade *
               </label>
               <input
@@ -165,20 +165,20 @@ export function AddItemModal({
                 onChange={(e) => setQuantity(e.target.value)}
                 min="0.01"
                 step="0.01"
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-[var(--app-border)] rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="modal-item-unit" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="modal-item-unit" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">
                 Unidade *
               </label>
               <select
                 id="modal-item-unit"
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                className="w-full px-3 py-2.5 border border-[var(--app-border)] rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--app-surface)]"
               >
                 {unitOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -191,7 +191,7 @@ export function AddItemModal({
 
           {/* Categoria / Seção do Mercado */}
           <div>
-            <label htmlFor="modal-item-category" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="modal-item-category" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">
               Seção / Categoria no Mercado
             </label>
             <select
@@ -201,7 +201,7 @@ export function AddItemModal({
                 setCategory(e.target.value);
                 setCategoryTouched(true);
               }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              className="w-full px-3 py-2.5 border border-[var(--app-border)] rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--app-surface)]"
               aria-describedby="modal-item-category-hint"
             >
               {CATEGORIES.map((cat) => (
@@ -217,7 +217,7 @@ export function AddItemModal({
 
           {/* Preço (opcional) */}
           <div>
-            <label htmlFor="modal-item-price" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="modal-item-price" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">
               Preço Estimado/Atual (opcional)
             </label>
             <div className="relative">
@@ -229,7 +229,7 @@ export function AddItemModal({
                 placeholder="0,00"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-3 py-2.5 border border-[var(--app-border)] rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -239,7 +239,7 @@ export function AddItemModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+              className="flex-1 py-3 px-4 border border-[var(--app-border)] text-[var(--app-text-secondary)] rounded-xl font-medium hover:bg-[var(--app-muted)] transition-colors"
             >
               Cancelar
             </button>

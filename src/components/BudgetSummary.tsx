@@ -109,7 +109,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
     >
       {/* Card: Orçamento Total */}
       <div
-        className={`bg-white p-6 rounded-xl shadow text-center ${isEditing ? 'ring-2 ring-blue-500' : ''}`}
+        className={`bg-[var(--app-surface)] p-6 rounded-xl shadow text-center ${isEditing ? 'ring-2 ring-blue-500' : ''}`}
         aria-label={`Orçamento total: ${budget === 0 ? 'não definido' : formatCurrency(budget)}`}
       >
         <div className="text-sm text-gray-600 mb-1">Orçamento</div>
@@ -122,7 +122,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-base text-center
+              className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg text-base text-center
                          focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               aria-label="Novo valor do orçamento"
               min="0"
@@ -143,7 +143,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
                 type="button"
                 onClick={cancelEditing}
                 disabled={saving}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="px-3 py-1.5 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Cancelar edição do orçamento"
               >
                 Cancelar
@@ -177,7 +177,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
 
       {/* Card: Total Comprado */}
       <div
-        className="bg-white p-6 rounded-xl shadow text-center"
+        className="bg-[var(--app-surface)] p-6 rounded-xl shadow text-center"
         aria-label={`Já comprado: ${formatCurrency(totalSpent)}, ${percentage.toFixed(1)}% do orçamento`}
       >
         <div className="text-sm text-gray-600 mb-1">Já Comprado</div>
@@ -205,7 +205,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
 
       {/* Card: Ainda Tem para Gastar / Estouro */}
       <div
-        className={`bg-white p-6 rounded-xl shadow text-center ${
+        className={`bg-[var(--app-surface)] p-6 rounded-xl shadow text-center ${
           isOverBudget ? 'ring-2 ring-red-300' : ''
         }`}
         aria-label={

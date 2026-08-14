@@ -140,6 +140,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado de histórico de preços
   const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
 
+  // Estado do sheet de orçamento (expande para cima a partir da barra)
+  const [isBudgetSheetOpen, setIsBudgetSheetOpen] = useState(false);
+
   // Estado de recolhimento da seção de Comprados (colapsada por padrão)
   const [isCompletedCollapsed, setIsCompletedCollapsed] = useState(true);
 
@@ -149,6 +152,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Refs p/ foco e scroll do painel de histórico inline (D5)
   const historyToggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const historyPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Refs do chip de orçamento e do painel do sheet (foco restaurado/trap)
+  const budgetChipRef = useRef<HTMLButtonElement | null>(null);
+  const budgetSheetRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -297,6 +304,42 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   /** Devolve o foco ao input do quick-add (após adição) */
   const focusQuickAdd = () => {
     document.getElementById('quick-add-name')?.focus();
+  };
+
+  /** Abre o sheet de orçamento e foca o painel */
+  const openBudgetSheet = () => {
+    setIsBudgetSheetOpen(true);
+  };
+
+  /** Fecha o sheet e restaura o foco no chip de orçamento */
+  const closeBudgetSheet = () => {
+    setIsBudgetSheetOpen(false);
+    budgetChipRef.current?.focus();
+  };
+
+  /** Teclado no sheet: Esc fecha; Tab fica preso no painel (trap) */
+  const handleBudgetSheetKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeBudgetSheet();
+      return;
+    }
+    if (e.key !== 'Tab') return;
+
+    const focusables = budgetSheetRef.current?.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusables || focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
   };
 
   /** Alterna status comprado/pendente de um item */
@@ -1244,32 +1287,42 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </form>
 
-            {/* Chip de orçamento — mostra gasto total e orçamento total */}
+            {/* Chip de orçamento — mostra gasto total fixo; ao clicar expande o sheet com resumo */}
             <button
-              onClick={openEditModal}
+              ref={budgetChipRef}
+              onClick={openBudgetSheet}
               className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              aria-expanded={isBudgetSheetOpen}
+              aria-controls="budget-sheet"
               aria-haspopup="dialog"
-              aria-label="Editar lista"
-              title="Editar lista"
+              aria-label="Ver resumo do orçamento"
+              title="Ver resumo do orçamento"
             >
               <span aria-hidden="true">💰</span>
               <span className="text-gray-700">
                 {budget > 0 ? (
-                  <>
-                    <span className="hidden sm:inline text-xs font-medium">Orçamento: </span>
-                    <span className="text-green-700">{formatCurrency(budget)}</span>
-                    <span className="mx-1 text-gray-400">·</span>
-                    <span className="text-amber-700">Gasto: {formatCurrency(totalSpent)}</span>
-                  </>
+                  <span className="text-amber-700">Gasto: {formatCurrency(totalSpent)}</span>
                 ) : (
                   <span className="text-xs font-medium">Definir orçamento</span>
                 )}
               </span>
               <span className="sr-only">
                 {budget > 0
-                  ? `Orçamento ${formatCurrency(budget)}, gasto ${formatCurrency(totalSpent)}`
+                  ? `Gasto total: ${formatCurrency(totalSpent)}`
                   : 'Definir orçamento'}
               </span>
+              <svg
+                aria-hidden="true"
+                focusable="false"
+                className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                  isBudgetSheetOpen ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
           </div>
         </div>
@@ -1279,6 +1332,40 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           {quickAddStatus}
         </div>
       </div>
+
+      {/* Sheet de Orçamento — bottom-sheet que expande para cima e cobre a
+          barra (z-50 > z-40). Fecha por X · Esc · backdrop; Tab preso no
+          painel; ao fechar o foco volta ao chip. */}
+      {isBudgetSheetOpen && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="budget-sheet-title">
+          {/* Backdrop — fecha no toque */}
+          <div className="absolute inset-0 bg-black/50" onClick={closeBudgetSheet} aria-hidden="true" />
+          <div
+            ref={budgetSheetRef}
+            tabIndex={-1}
+            onKeyDown={handleBudgetSheetKeyDown}
+            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
+          >
+            <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 shrink-0">
+              <h2 id="budget-sheet-title" className="text-lg font-semibold text-gray-900">
+                Orçamento
+              </h2>
+              <button
+                onClick={closeBudgetSheet}
+                className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar orçamento"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 sm:p-6 pt-0">
+              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={budget - totalSpent} onSaveBudget={handleSaveBudget} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de edição unificada da lista */}
       {isEditModalOpen && (

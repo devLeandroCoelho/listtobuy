@@ -23,15 +23,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Dados obrigatórios' }, { status: 400 });
   }
 
-  // Buscar usuário pelo email
+  // Buscar usuário pelo email (sem revelar se existe para evitar enumeração)
   const { data: targetUser } = await supabase
     .from('users')
     .select('id')
     .eq('email', email)
-    .single();
+    .maybeSingle();
 
   if (!targetUser) {
-    return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    // Resposta genérica: não revela se o e-mail existe ou não
+    return NextResponse.json({ message: 'Convite processado' }, { status: 200 });
   }
 
   // Verificar se o usuário atual é dono da lista
@@ -43,6 +44,18 @@ export async function POST(request: Request) {
 
   if (!list || list.user_id !== user.id) {
     return NextResponse.json({ error: 'Sem permissão' }, { status: 403 });
+  }
+
+  // Verificar se já existe compartilhamento
+  const { data: existingShare } = await supabase
+    .from('list_shares')
+    .select('id')
+    .eq('list_id', list_id)
+    .eq('user_id', targetUser.id)
+    .maybeSingle();
+
+  if (existingShare) {
+    return NextResponse.json({ message: 'Convite processado' }, { status: 200 });
   }
 
   // Criar compartilhamento
@@ -57,7 +70,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 
   return NextResponse.json({ data }, { status: 201 });

@@ -1,0 +1,27 @@
+{
+  "name": "ListToBuy",
+  "short_name": "ListToBuy",
+  "description": "Lista de compras inteligente com controle de orçamento",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FDFCFB",
+  "theme_color": "#E85D04",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "apple-touch-icon"
+    }
+  ],
+  "categories": ["shopping", "productivity", "utilities"],
+  "lang": "pt-BR",
+  "dir": "ltr"
+}

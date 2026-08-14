@@ -123,15 +123,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [editFocusField, setEditFocusField] = useState<'name' | 'qty'>('name');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Estado de edição do nome da lista
-  const [editingListName, setEditingListName] = useState(false);
-  const [listNameValue, setListNameValue] = useState('');
-  const [savingListName, setSavingListName] = useState(false);
-
-  // Estado de edição do mês da lista
-  const [editingListMonth, setEditingListMonth] = useState(false);
-  const [listMonthValue, setListMonthValue] = useState('');
-  const [savingListMonth, setSavingListMonth] = useState(false);
+  // Estado do modal de edição unificada
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editListName, setEditListName] = useState('');
+  const [editListMonth, setEditListMonth] = useState('');
+  const [editListBudget, setEditListBudget] = useState('');
+  const [editListSaving, setEditListSaving] = useState(false);
+  const [editListError, setEditListError] = useState('');
+  const editModalTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
@@ -153,10 +152,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Refs p/ foco e scroll do painel de histórico inline (D5)
   const historyToggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const historyPanelRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  // Refs do chip de orçamento e do painel do sheet (foco restaurado/trap)
-  const budgetChipRef = useRef<HTMLButtonElement | null>(null);
-  const budgetSheetRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
   const supabase = createClient();
@@ -248,120 +243,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     [id, showSuccess]
   );
 
-  /** Inicia edição do nome da lista */
-  const startEditingListName = useCallback(() => {
-    if (!list) return;
-    setListNameValue(list.name);
-    setEditingListName(true);
-  }, [list]);
-
-  /** Salva novo nome da lista (PATCH /api/lists/[id]) */
-  const handleSaveListName = useCallback(async () => {
-    const trimmed = listNameValue.trim();
-    if (!trimmed) {
-      setError('Nome da lista não pode ser vazio');
-      return;
-    }
-
-    if (trimmed === list?.name) {
-      setEditingListName(false);
-      return;
-    }
-
-    setSavingListName(true);
-    setError('');
-    try {
-      const response = await fetch(`/api/lists/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: trimmed }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao atualizar nome');
-      }
-
-      setList((prev) => (prev ? { ...prev, name: data.list.name } : prev));
-      setEditingListName(false);
-      showSuccess('Nome da lista atualizado');
-    } catch {
-      setError('Erro ao salvar nome da lista');
-    } finally {
-      setSavingListName(false);
-    }
-  }, [id, list, listNameValue, showSuccess]);
-
-  const cancelEditingListName = useCallback(() => {
-    setListNameValue('');
-    setEditingListName(false);
-    setError('');
-  }, []);
-
-  /** Inicia edição do mês da lista */
-  const startEditingListMonth = useCallback(() => {
-    if (!list) return;
-    setListMonthValue(list.month);
-    setEditingListMonth(true);
-  }, [list]);
-
-  /** Salva novo mês da lista (PATCH /api/lists/[id]) */
-  const handleSaveListMonth = useCallback(async () => {
-    const trimmed = listMonthValue.trim();
-    const monthRegex = /^\d{4}-\d{2}$/;
-    if (!monthRegex.test(trimmed)) {
-      setError('Formato de mês inválido. Use YYYY-MM');
-      return;
-    }
-    const [, m] = trimmed.split('-');
-    const monthNum = Number(m);
-    if (monthNum < 1 || monthNum > 12) {
-      setError('Mês inválido. Use um mês entre 01 e 12.');
-      return;
-    }
-
-    if (trimmed === list?.month) {
-      setEditingListMonth(false);
-      return;
-    }
-
-    setSavingListMonth(true);
-    setError('');
-    try {
-      const response = await fetch(`/api/lists/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ month: trimmed }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao atualizar mês');
-      }
-
-      setList((prev) => (prev ? { ...prev, month: data.list.month } : prev));
-      setEditingListMonth(false);
-      showSuccess('Mês da lista atualizado');
-    } catch {
-      setError('Erro ao salvar mês da lista');
-    } finally {
-      setSavingListMonth(false);
-    }
-  }, [id, list, listMonthValue, showSuccess]);
-
-  const cancelEditingListMonth = useCallback(() => {
-    setListMonthValue('');
-    setEditingListMonth(false);
-    setError('');
-  }, []);
-
   /** Sheet de orçamento: ao abrir, foca o painel (foco entra no sheet) */
-  useEffect(() => {
-    if (isBudgetSheetOpen) {
-      budgetSheetRef.current?.focus();
-    }
-  }, [isBudgetSheetOpen]);
-
   /** Adiciona item via barra de base (quick-add estilo Listonic).
    *  Payload mínimo: { name, quantity: 1, unit: 'un' } — SEM price/category
    *  (coluna fica NULL → auto-guess pela categoria via resolveItemCategory). */
@@ -418,42 +300,6 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   /** Devolve o foco ao input do quick-add (após adição) */
   const focusQuickAdd = () => {
     document.getElementById('quick-add-name')?.focus();
-  };
-
-  /** Abre o sheet de orçamento e foca o painel */
-  const openBudgetSheet = () => {
-    setIsBudgetSheetOpen(true);
-  };
-
-  /** Fecha o sheet e restaura o foco no chip de orçamento */
-  const closeBudgetSheet = () => {
-    setIsBudgetSheetOpen(false);
-    budgetChipRef.current?.focus();
-  };
-
-  /** Teclado no sheet: Esc fecha; Tab fica preso no painel (trap) */
-  const handleBudgetSheetKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      closeBudgetSheet();
-      return;
-    }
-    if (e.key !== 'Tab') return;
-
-    const focusables = budgetSheetRef.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    if (!focusables || focusables.length === 0) return;
-
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
   };
 
   /** Alterna status comprado/pendente de um item */
@@ -636,6 +482,103 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       setError('Erro de conexão');
     }
   };
+
+  /** Abre o modal de edição unificado com os dados atuais da lista */
+  const openEditModal = useCallback(() => {
+    if (!list) return;
+    setEditListName(list.name);
+    setEditListMonth(list.month);
+    setEditListBudget(String(list.budget));
+    setEditListError('');
+    setIsEditModalOpen(true);
+    editModalTriggerRef.current?.focus();
+  }, [list]);
+
+  /** Fecha o modal de edição unificado */
+  const closeEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+    editModalTriggerRef.current?.focus();
+  }, []);
+
+  /** Salva edição unificada da lista (nome, mês, orçamento) */
+  const handleSaveEditList = useCallback(async () => {
+    if (!list) return;
+    const trimmedName = editListName.trim();
+    const trimmedMonth = editListMonth.trim();
+    const monthRegex = /^\d{4}-\d{2}$/;
+    if (!trimmedName) {
+      setEditListError('Nome da lista não pode ser vazio');
+      return;
+    }
+    if (!monthRegex.test(trimmedMonth)) {
+      setEditListError('Mês inválido. Use YYYY-MM');
+      return;
+    }
+    const [, m] = trimmedMonth.split('-');
+    const monthNum = Number(m);
+    if (monthNum < 1 || monthNum > 12) {
+      setEditListError('Mês inválido. Use um mês entre 01 e 12.');
+      return;
+    }
+
+    setEditListSaving(true);
+    setEditListError('');
+    try {
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: trimmedName,
+          month: trimmedMonth,
+          budget: Number(editListBudget) || 0,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar lista');
+      }
+
+      setList((prev) => (prev ? { ...prev, ...data.list } : prev));
+      closeEditModal();
+      showSuccess('Lista atualizada');
+    } catch {
+      setEditListError('Erro ao salvar alterações');
+    } finally {
+      setEditListSaving(false);
+    }
+  }, [id, list, editListName, editListMonth, editListBudget, closeEditModal, showSuccess]);
+
+  /** Arquivar/desarquivar a lista a partir do modal de edição */
+  const handleArchiveFromModal = useCallback(async () => {
+    if (!list) return;
+    const isArchived = !!list.archived_at;
+    const confirmMessage = isArchived
+      ? `Desarquivar lista "${list.name}"? Ela voltará a aparecer na listagem principal.`
+      : `Arquivar lista "${list.name}"? Ela será ocultada da listagem principal.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      setEditListError('');
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived_at: !isArchived }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar lista');
+      }
+
+      setList((prev) => (prev ? { ...prev, archived_at: data.list.archived_at } : prev));
+      closeEditModal();
+      showSuccess(isArchived ? 'Lista desarquivada' : 'Lista arquivada');
+    } catch {
+      setEditListError('Erro ao arquivar lista');
+    }
+  }, [id, list, closeEditModal, showSuccess]);
 
   /** Salva preço para um item comprado */
   const handleSavePrice = async (itemId: string) => {
@@ -922,6 +865,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
                              transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label={`Editar ${item.name}`}
+                  title={`Editar ${item.name}`}
                 >
                   <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -932,6 +876,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
                              transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label={`Remover ${item.name}`}
+                  title={`Remover ${item.name}`}
                 >
                   <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1017,100 +962,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               ← Voltar
             </Link>
             <div className="flex-1 min-w-0 text-center">
-              {editingListName ? (
-                <div className="flex items-center justify-center gap-2">
-                  <input
-                    type="text"
-                    value={listNameValue}
-                    onChange={(e) => setListNameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleSaveListName();
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault();
-                        cancelEditingListName();
-                      }
-                    }}
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    aria-label="Novo nome da lista"
-                    autoFocus
-                    disabled={savingListName}
-                  />
-                  <button
-                    onClick={handleSaveListName}
-                    disabled={savingListName}
-                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                    aria-label="Salvar nome da lista"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={cancelEditingListName}
-                    disabled={savingListName}
-                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                    aria-label="Cancelar edição do nome"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ) : editingListMonth ? (
-                <div className="flex items-center justify-center gap-2">
-                  <input
-                    type="text"
-                    value={listMonthValue}
-                    onChange={(e) => setListMonthValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleSaveListMonth();
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault();
-                        cancelEditingListMonth();
-                      }
-                    }}
-                    placeholder="YYYY-MM"
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent w-24"
-                    aria-label="Novo mês da lista (YYYY-MM)"
-                    autoFocus
-                    disabled={savingListMonth}
-                  />
-                  <button
-                    onClick={handleSaveListMonth}
-                    disabled={savingListMonth}
-                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                    aria-label="Salvar mês da lista"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={cancelEditingListMonth}
-                    disabled={savingListMonth}
-                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                    aria-label="Cancelar edição do mês"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <h1 className="text-lg font-bold text-gray-900 truncate">
-                    {list.name}
-                    <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
-                  </h1>
-                  <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
-                    {miniStatus}
-                  </p>
-                </>
-              )}
+              <h1 className="text-lg font-bold text-gray-900 truncate">
+                {list.name}
+                <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
+              </h1>
+              <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
+                {miniStatus}
+              </p>
             </div>
             <div className="flex items-center shrink-0">
               <button
@@ -1131,30 +989,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              {!editingListName && !editingListMonth && (
-                <button
-                  onClick={startEditingListMonth}
-                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label="Editar mês da lista"
-                  title="Editar mês"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </button>
-              )}
-              {!editingListName && (
-                <button
-                  onClick={startEditingListName}
-                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label="Editar nome da lista"
-                  title="Editar nome"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-              )}
+              <button
+                onClick={openEditModal}
+                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Editar lista"
+                title="Editar lista"
+                ref={editModalTriggerRef}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
               <button
                 onClick={handleDeleteList}
                 className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -1403,14 +1248,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </form>
 
-            {/* Chip de orçamento — trigger do sheet (sempre visível) */}
+            {/* Chip de orçamento — trigger do modal de edição unificada */}
             <button
-              ref={budgetChipRef}
-              onClick={openBudgetSheet}
+              onClick={openEditModal}
               className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
-              aria-expanded={isBudgetSheetOpen}
-              aria-controls="budget-sheet"
               aria-haspopup="dialog"
+              aria-label="Editar lista"
+              title="Editar lista"
             >
               <span aria-hidden="true">💰</span>
               <span className={budget > 0 ? (remaining < 0 ? 'text-red-700' : 'text-green-700') : 'text-gray-700'}>
@@ -1452,35 +1296,95 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      {/* Sheet de Orçamento — bottom-sheet que expande para cima e cobre a
-          barra (z-50 > z-40). Fecha por X · Esc · backdrop; Tab preso no
-          painel; ao fechar o foco volta ao chip. */}
-      {isBudgetSheetOpen && (
-        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="budget-sheet-title">
-          {/* Backdrop — fecha no toque */}
-          <div className="absolute inset-0 bg-black/50" onClick={closeBudgetSheet} aria-hidden="true" />
+      {/* Modal de edição unificada da lista */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeEditModal}>
           <div
-            ref={budgetSheetRef}
-            tabIndex={-1}
-            onKeyDown={handleBudgetSheetKeyDown}
-            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
+            className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-list-title"
           >
-            <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 shrink-0">
-              <h2 id="budget-sheet-title" className="text-lg font-semibold text-gray-900">
-                Orçamento
-              </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="edit-list-title" className="text-lg font-bold text-gray-900">Editar Lista</h2>
               <button
-                onClick={closeBudgetSheet}
-                className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
-                aria-label="Fechar orçamento"
+                onClick={closeEditModal}
+                className="w-10 h-10 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar edição"
+                title="Fechar edição"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="overflow-y-auto p-4 sm:p-6 pt-0">
-              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={remaining} onSaveBudget={handleSaveBudget} />
+
+            {editListError && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm mb-4" role="alert">{editListError}</div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="edit-list-name" className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                <input
+                  id="edit-list-name"
+                  type="text"
+                  value={editListName}
+                  onChange={(e) => setEditListName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-list-month" className="block text-sm font-medium text-gray-700 mb-1">Mês (YYYY-MM)</label>
+                <input
+                  id="edit-list-month"
+                  type="text"
+                  value={editListMonth}
+                  onChange={(e) => setEditListMonth(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-list-budget" className="block text-sm font-medium text-gray-700 mb-1">Orçamento (R$)</label>
+                <input
+                  id="edit-list-budget"
+                  type="number"
+                  value={editListBudget}
+                  onChange={(e) => setEditListBudget(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 mt-6">
+              <button
+                type="button"
+                onClick={handleArchiveFromModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                {list?.archived_at ? 'Desarquivar' : 'Arquivar'}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  disabled={editListSaving}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditList}
+                  disabled={editListSaving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {editListSaving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

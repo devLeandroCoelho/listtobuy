@@ -37,6 +37,12 @@ export default function DashboardPage() {
   const [archiveFilter, setArchiveFilter] = useState<'all' | 'active' | 'archived'>('active');
   const [monthSearch, setMonthSearch] = useState('');
   const [nameSearch, setNameSearch] = useState('');
+  const [editingList, setEditingList] = useState<ListData | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editMonth, setEditMonth] = useState('');
+  const [editBudget, setEditBudget] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const router = useRouter();
@@ -181,6 +187,37 @@ export default function DashboardPage() {
     }
   };
 
+  const handleEditList = (list: ListData) => {
+    setEditingList(list);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingList(null);
+  };
+
+  const handleSaveEditList = async (updated: Partial<ListData>) => {
+    if (!editingList) return;
+    try {
+      setError('');
+      const response = await fetch(`/api/lists/${editingList.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar lista');
+      }
+
+      setSuccess('Lista atualizada');
+      await loadData(user!.id);
+      setEditingList(null);
+    } catch {
+      setError('Erro ao salvar alterações');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -188,6 +225,44 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const openEditModal = (list: ListData) => {
+    setEditName(list.name);
+    setEditMonth(list.month);
+    setEditBudget(String(list.budget));
+    setEditingList(list);
+    setEditError('');
+  };
+
+  const handleSaveEditListModal = async () => {
+    if (!editingList) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const response = await fetch(`/api/lists/${editingList.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName,
+          month: editMonth,
+          budget: Number(editBudget) || 0,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar lista');
+      }
+
+      setSuccess('Lista atualizada');
+      await loadData(user!.id);
+      setEditingList(null);
+    } catch {
+      setEditError('Erro ao salvar alterações');
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -323,6 +398,16 @@ export default function DashboardPage() {
                       </Link>
                       <div className="flex items-center gap-1 shrink-0">
                         <button
+                          onClick={() => handleEditList(list)}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          aria-label={`Editar lista ${list.name}`}
+                          title="Editar lista"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                          </svg>
+                        </button>
+                        <button
                           onClick={() => handleToggleArchive(list)}
                           className={`p-2 rounded-lg transition-colors ${
                             isArchived
@@ -381,6 +466,63 @@ export default function DashboardPage() {
           </div>
         )}
       </main>
+
+      {editingList && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCloseEditModal}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-xl font-bold mb-4">Editar Lista</h2>
+            {editError && <p className="text-red-600 text-sm mb-2">{editError}</p>}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mês</label>
+                <input
+                  type="text"
+                  value={editMonth}
+                  onChange={(e) => setEditMonth(e.target.value)}
+                  placeholder="YYYY-MM"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Orçamento (R$)</label>
+                <input
+                  type="number"
+                  value={editBudget}
+                  onChange={(e) => setEditBudget(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={handleCloseEditModal}
+                disabled={editSaving}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEditListModal}
+                disabled={editSaving}
+                className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {editSaving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

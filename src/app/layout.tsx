@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { A2HSBanner } from '@/components/A2HSBanner';
+import { BugReportButton } from '@/components/BugReportButton';
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <OfflineIndicator />
         <A2HSBanner />
+        <BugReportButton />
       </body>
     </html>
   );

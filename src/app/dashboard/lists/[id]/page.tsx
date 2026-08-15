@@ -636,7 +636,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     if (!priceStr) return;
 
     const priceValue = parseFloat(priceStr.replace(',', '.'));
-    if (isNaN(priceValue) || priceValue < 0) {
+    if (isNaN(priceValue) || priceValue < 0 || priceValue > 999999.99) {
       setError('Preço inválido');
       return;
     }
@@ -679,7 +679,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   /** Atualiza valor do input de preço */
   const handlePriceChange = (itemId: string, value: string) => {
-    setPriceInputs((prev) => ({ ...prev, [itemId]: value }));
+    const sanitized = value.replace(/[^0-9.,]/g, '');
+    setPriceInputs((prev) => ({ ...prev, [itemId]: sanitized }));
     if (error) setError('');
   };
 

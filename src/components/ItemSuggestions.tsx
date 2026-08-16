@@ -1,52 +1,40 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { findRecipesByQuery } from '@/lib/recipes';
 
-/**
- * ItemSuggestions — Autocomplete de nomes de itens já usados pelo usuário.
- *
- * Busca sugestões em GET /api/items/suggestions (histórico do usuário, ordenado
- * por uso recente, máx 8) com debounce de 200ms e exibe um dropdown logo abaixo
- * do campo. Se o campo estiver vazio ao focar, mostra os itens mais recentes.
- *
- * Funcionalidades:
- * - Debounce de 200ms na digitação
- * - Ao focar com o campo vazio, busca os itens mais recentes
- * - Seleção por clique ou teclado (setas ↑/↓ + Enter)
- * - Esc fecha o dropdown; clicar fora também fecha
- * - Erros de API são tratados silenciosamente (só não mostra sugestões)
- * - Selecionar sugestão NÃO submete o formulário — apenas preenche o campo
- *
- * Acessibilidade (WCAG 2.1 AA):
- * - role="combobox" + aria-expanded no input
- * - listbox/option com aria-activedescendant para a opção ativa
- * - Navegação completa por teclado (setas, Enter, Esc, Tab)
- * - Região ao vivo (role="status") anunciando sugestões e opção ativa
- * - Contraste mínimo 4.5:1, fonte 16px, sem animações piscantes
- */
-
-/** Debounce da busca de sugestões (ms) */
 const DEBOUNCE_MS = 200;
-
-/** Máximo de sugestões solicitadas à API */
 const SUGGESTIONS_LIMIT = 8;
+const CACHE_TTL = 5 * 60 * 1000;
 
-interface Suggestion {
+interface HistorySuggestion {
   name: string;
-  last_used: string;
+  frequency?: number;
+  last_purchase: string;
+  source?: 'history';
 }
 
+interface RecipeSuggestion {
+  name: string;
+  last_used: string;
+  source: 'recipe';
+  recipeName?: string;
+}
+
+type Suggestion = HistorySuggestion | RecipeSuggestion;
+
 interface ItemSuggestionsProps {
-  /** Valor atual do campo (controlado pela página) */
   value: string;
-  /** Chamado quando o usuário digita — a página mantém o estado */
   onValueChange: (value: string) => void;
-  /** Chamado quando o usuário seleciona uma sugestão */
   onSelect: (name: string) => void;
-  /** id do input (para o label da página via htmlFor) */
   id?: string;
   placeholder?: string;
   required?: boolean;
+}
+
+interface CacheEntry {
+  data: Suggestion[];
+  timestamp: number;
 }
 
 export function ItemSuggestions({
@@ -66,26 +54,74 @@ export function ItemSuggestions({
   const listboxId = useId();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeqRef = useRef(0);
+  const cacheRef = useRef<Map<string, CacheEntry>>(new Map());
 
   const closeListbox = useCallback(() => {
     setIsOpen(false);
     setActiveIndex(-1);
   }, []);
 
-  /** Busca sugestões na API (descarta respostas atrasadas/obsoletas) */
+  const getCached = useCallback((key: string): Suggestion[] | undefined => {
+    const entry = cacheRef.current.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.timestamp > CACHE_TTL) {
+      cacheRef.current.delete(key);
+      return undefined;
+    }
+    return entry.data;
+  }, []);
+
+  const setCache = useCallback((key: string, data: Suggestion[]) => {
+    cacheRef.current.set(key, { data, timestamp: Date.now() });
+  }, []);
+
   const fetchSuggestions = useCallback(async (query: string) => {
     const seq = ++requestSeqRef.current;
     const trimmed = query.trim();
+    const cacheKey = trimmed || '__recent__';
+
+    const cached = getCached(cacheKey);
+    if (cached) {
+      if (seq !== requestSeqRef.current) return;
+      let next = cached;
+      if (trimmed) {
+        try {
+          const recipeParams = new URLSearchParams({ q: trimmed });
+          const recipeResponse = await fetch(`/api/recipes/suggestions?${recipeParams.toString()}`);
+          if (seq === requestSeqRef.current && recipeResponse.ok) {
+            const recipeData: { suggestions?: Array<{ name: string }> } = await recipeResponse.json();
+            if (Array.isArray(recipeData.suggestions)) {
+              const recipeSuggestions: RecipeSuggestion[] = recipeData.suggestions.map((r) => ({
+                name: r.name,
+                last_used: '',
+                source: 'recipe',
+              }));
+              next = [...recipeSuggestions, ...next];
+            }
+          }
+        } catch {
+          // silencioso
+        }
+      }
+      next = next.slice(0, SUGGESTIONS_LIMIT);
+      if (seq === requestSeqRef.current) {
+        setSuggestions(next);
+        if (document.activeElement === inputRef.current) {
+          setIsOpen(next.length > 0 || trimmed.length > 0);
+          setActiveIndex(-1);
+        }
+      }
+      return;
+    }
 
     try {
       const params = new URLSearchParams({ limit: String(SUGGESTIONS_LIMIT) });
       if (trimmed) params.set('q', trimmed);
 
-      const response = await fetch(`/api/items/suggestions?${params.toString()}`);
-      if (seq !== requestSeqRef.current) return; // resposta antiga — ignora
+      const response = await fetch(`/api/suggestions?${params.toString()}`);
+      if (seq !== requestSeqRef.current) return;
 
       if (!response.ok) {
-        // Erro silencioso (ex.: sessão expirada) — apenas não mostra sugestões
         if (seq === requestSeqRef.current) {
           setSuggestions([]);
           setIsOpen(false);
@@ -96,25 +132,46 @@ export function ItemSuggestions({
       const data: { suggestions?: Suggestion[] } = await response.json();
       if (seq !== requestSeqRef.current) return;
 
-      const next = Array.isArray(data.suggestions) ? data.suggestions : [];
-      setSuggestions(next);
+      let next: Suggestion[] = Array.isArray(data.suggestions) ? data.suggestions : [];
+      setCache(cacheKey, next);
 
-      // Abre o dropdown só se o input ainda estiver focado. Com termo digitado
-      // e zero resultados, abre para exibir "nenhuma sugestão".
-      if (document.activeElement === inputRef.current) {
-        setIsOpen(next.length > 0 || trimmed.length > 0);
-        setActiveIndex(-1);
+      if (trimmed) {
+        try {
+          const recipeParams = new URLSearchParams({ q: trimmed });
+          const recipeResponse = await fetch(`/api/recipes/suggestions?${recipeParams.toString()}`);
+          if (seq === requestSeqRef.current && recipeResponse.ok) {
+            const recipeData: { suggestions?: Array<{ name: string }> } = await recipeResponse.json();
+            if (Array.isArray(recipeData.suggestions)) {
+              const recipeSuggestions: RecipeSuggestion[] = recipeData.suggestions.map((r) => ({
+                name: r.name,
+                last_used: '',
+                source: 'recipe',
+              }));
+              next = [...recipeSuggestions, ...next];
+            }
+          }
+        } catch {
+          // silencioso
+        }
+      }
+
+      next = next.slice(0, SUGGESTIONS_LIMIT);
+
+      if (seq === requestSeqRef.current) {
+        setSuggestions(next);
+        if (document.activeElement === inputRef.current) {
+          setIsOpen(next.length > 0 || trimmed.length > 0);
+          setActiveIndex(-1);
+        }
       }
     } catch {
-      // Falha de rede/parse — silencioso
       if (seq === requestSeqRef.current) {
         setSuggestions([]);
         setIsOpen(false);
       }
     }
-  }, []);
+  }, [getCached, setCache]);
 
-  /** Agenda busca com debounce após digitar */
   const scheduleFetch = useCallback(
     (query: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -127,13 +184,12 @@ export function ItemSuggestions({
 
   const selectSuggestion = useCallback(
     (name: string) => {
-      onSelect(name); // apenas preenche o campo — não submete o form
+      onSelect(name);
       closeListbox();
     },
     [onSelect, closeListbox],
   );
 
-  // Fecha o dropdown ao clicar/toque fora do componente
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -148,14 +204,12 @@ export function ItemSuggestions({
     };
   }, [closeListbox]);
 
-  // Limpa o debounce pendente ao desmontar
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, []);
 
-  /** Ao focar, busca imediatamente (sem debounce) — mostra itens recentes */
   const handleFocus = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     void fetchSuggestions(value);
@@ -187,7 +241,6 @@ export function ItemSuggestions({
             e.preventDefault();
             selectSuggestion(suggestions[activeIndex].name);
           } else {
-            // Sem opção ativa: fecha o dropdown e deixa o submit do form seguir
             closeListbox();
           }
           break;
@@ -246,17 +299,32 @@ export function ItemSuggestions({
               const isActive = index === activeIndex;
               return (
                 <li
-                  key={suggestion.name}
+                  key={`${suggestion.source ?? 'history'}-${suggestion.name}-${index}`}
                   id={`${listboxId}-option-${index}`}
                   role="option"
                   aria-selected={isActive}
-                  onMouseDown={(e) => e.preventDefault()} // mantém o foco no input
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => selectSuggestion(suggestion.name)}
                   className={`cursor-pointer px-4 py-3 text-base break-words ${
                     isActive ? 'bg-blue-50 text-[var(--app-accent)]' : 'text-[var(--app-text)]'
                   }`}
                 >
-                  {suggestion.name}
+                  <span className="flex items-center gap-2">
+                    {suggestion.source === 'recipe' && (
+                      <span aria-hidden="true" className="text-sm">🍳</span>
+                    )}
+                    <span className="flex-1 min-w-0">{suggestion.name}</span>
+                    {suggestion.source === 'recipe' && suggestion.recipeName && (
+                      <span className="text-xs text-gray-400 truncate">
+                        {suggestion.recipeName}
+                      </span>
+                    )}
+                    {suggestion.source !== 'recipe' && suggestion.frequency != null && (
+                      <span className="text-xs text-gray-400">
+                        {suggestion.frequency}x
+                      </span>
+                    )}
+                  </span>
                 </li>
               );
             })}
@@ -268,7 +336,6 @@ export function ItemSuggestions({
           </div>
         ))}
 
-      {/* Região ao vivo para leitores de tela */}
       <p className="sr-only" role="status">
         {hasOptions
           ? `${suggestions.length} ${suggestions.length === 1 ? 'sugestão' : 'sugestões'} disponíveis.${

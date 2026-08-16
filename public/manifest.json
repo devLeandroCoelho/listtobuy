@@ -3,6 +3,7 @@
   "short_name": "ListToBuy",
   "description": "Lista de compras inteligente com controle de orçamento",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#FDFCFB",
   "theme_color": "#E85D04",
@@ -19,9 +20,35 @@
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "apple-touch-icon"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "categories": ["shopping", "productivity", "utilities"],
   "lang": "pt-BR",
-  "dir": "ltr"
+  "dir": "ltr",
+  "shortcuts": [
+    {
+      "name": "Nova lista",
+      "short_name": "Nova lista",
+      "description": "Criar uma nova lista de compras",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
 }

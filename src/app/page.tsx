@@ -283,7 +283,7 @@ export default function Home() {
                 <li>✅ Suporte prioritário</li>
               </ul>
               <Link
-                href="/register?plan=premium"
+                href="/pricing"
                 className="block text-center py-2 bg-[var(--app-accent)] text-white rounded-xl hover:opacity-90 font-medium transition-colors"
                 aria-label="Assinar plano Premium"
               >

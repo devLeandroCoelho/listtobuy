@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { CATEGORIES } from '@/lib/categories';
+import { LIST_TEMPLATES, getTemplateById, type ListTemplate } from '@/lib/templates';
+import localforage from 'localforage';
 
 /**
  * Página de criação de lista de compras.
@@ -36,12 +40,15 @@ function getMonthOptions(): { value: string; label: string }[] {
   return options;
 }
 
+const PENDING_LISTS_KEY = 'pending_lists';
+
 export default function NewListPage() {
   const [user, setUser] = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const isOnline = useOnlineStatus();
+  const { addToQueue } = useOfflineSync();
 
   // Campos do formulário
   const [name, setName] = useState('');
@@ -50,18 +57,27 @@ export default function NewListPage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [budget, setBudget] = useState('');
+  const [category, setCategory] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   const router = useRouter();
   const supabase = createClient();
   const monthOptions = getMonthOptions();
 
+  const selectedTemplate = getTemplateById(selectedTemplateId);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
+        const authPromise = supabase.auth.getUser();
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Auth timeout')), 3000);
+        });
+
+        const { data: { user: authUser } } = await Promise.race([
+          authPromise,
+          timeoutPromise,
+        ]);
 
         if (!authUser) {
           if (isOnline) {
@@ -86,13 +102,25 @@ export default function NewListPage() {
     checkAuth();
   }, [supabase, router, isOnline]);
 
+  /** Atualiza nome quando template é selecionado */
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (templateId) {
+      const template = getTemplateById(templateId);
+      if (template) {
+        setName(`Lista de ${template.name}`);
+      }
+    } else {
+      setName('');
+    }
+  };
+
   /** Envia formulário de criação de lista */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
 
-    // Validação client-side
     if (!name.trim()) {
       setError('Digite o nome da lista');
       setSubmitting(false);
@@ -106,6 +134,35 @@ export default function NewListPage() {
     }
 
     try {
+      if (!isOnline) {
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        const localList = {
+          id: tempId,
+          name: name.trim(),
+          month,
+          budget: budget ? Number(budget) : 0,
+          category: category || null,
+          user_id: user?.id || 'local',
+          archived_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const pendingLists = await localforage.getItem<typeof localList[]>('pending_lists') || [];
+        pendingLists.push(localList);
+        await localforage.setItem('pending_lists', pendingLists);
+
+        await addToQueue({
+          type: 'create',
+          endpoint: '/api/lists',
+          method: 'POST',
+          body: { name: name.trim(), month, budget: budget ? Number(budget) : 0 },
+        });
+
+        router.push('/dashboard');
+        return;
+      }
+
       const response = await fetch('/api/lists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,6 +170,7 @@ export default function NewListPage() {
           name: name.trim(),
           month,
           budget: budget ? Number(budget) : 0,
+          category: category || null,
         }),
       });
 
@@ -124,8 +182,12 @@ export default function NewListPage() {
         return;
       }
 
-      // Redireciona para a lista criada
-      router.push(`/dashboard/lists/${data.list.id}`);
+      // Redireciona para a lista criada, com template param se houver
+      if (selectedTemplateId) {
+        router.push(`/dashboard/lists/${data.list.id}?template=${selectedTemplateId}`);
+      } else {
+        router.push(`/dashboard/lists/${data.list.id}`);
+      }
     } catch {
       setError('Erro de conexão. Tente novamente.');
       setSubmitting(false);
@@ -181,6 +243,36 @@ export default function NewListPage() {
           className="bg-[var(--app-surface)] rounded-xl shadow-sm border border-[var(--app-border)] p-6 space-y-6"
           noValidate
         >
+          {/* Campo: Template */}
+          <div>
+            <label
+              htmlFor="list-template"
+              className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1"
+            >
+              Template
+            </label>
+            <select
+              id="list-template"
+              value={selectedTemplateId}
+              onChange={(e) => handleTemplateChange(e.target.value)}
+              className="w-full px-4 py-3 border border-[var(--app-border)] rounded-lg text-base
+                         focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent
+                         bg-[var(--app-surface)]"
+            >
+              <option value="">Sem template</option>
+              {LIST_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.icon} {template.name}
+                </option>
+              ))}
+            </select>
+            {selectedTemplate && (
+              <p className="mt-1 text-sm text-[var(--app-text-secondary)]">
+                {selectedTemplate.items.length} itens pré-definidos serão adicionados
+              </p>
+            )}
+          </div>
+
           {/* Campo: Nome da Lista */}
           <div>
             <label
@@ -229,6 +321,31 @@ export default function NewListPage() {
               {monthOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Campo: Categoria */}
+          <div>
+            <label
+              htmlFor="list-category"
+              className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1"
+            >
+              Categoria
+            </label>
+            <select
+              id="list-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-4 py-3 border border-[var(--app-border)] rounded-lg text-base
+                         focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent
+                         bg-[var(--app-surface)]"
+            >
+              <option value="">Sem categoria</option>
+              {CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.icon} {cat.name}
                 </option>
               ))}
             </select>

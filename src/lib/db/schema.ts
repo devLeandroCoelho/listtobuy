@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, numeric, boolean } from 'drizzle-orm/pg-core';
 
 // ============================================
 // Tabelas do ListToBuy — Drizzle ORM Schema
@@ -14,6 +14,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().references(() => authUsers.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
+  isPremium: boolean('is_premium').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -27,6 +28,7 @@ export const lists = pgTable('lists', {
   name: text('name').notNull(),
   month: text('month').notNull(), // Formato: "2026-08"
   budget: numeric('budget', { precision: 10, scale: 2 }).notNull().default('0'),
+  category: text('category'), // Categoria visual da lista (NULL = sem categoria)
   archivedAt: timestamp('archived_at'), // NULL = ativa; preenchida = arquivada
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -43,6 +45,8 @@ export const items = pgTable('items', {
   unit: text('unit').notNull().default('un'),
   completed: numeric('completed').notNull().default('0'), // 0 = pendente, 1 = comprado
   category: text('category'), // Categoria/seção do item (NULL = não categorizado); ex.: 'hortifruti'
+  reminderDate: timestamp('reminder_date'), // Data/hora do lembrete (NULL = sem lembrete)
+  reminderNotified: numeric('reminder_notified').notNull().default('0'), // 0 = não notificado, 1 = notificado
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -58,6 +62,20 @@ export const prices = pgTable('prices', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+/** Tabela de preferências de notificação de preço por item */
+export const priceAlerts = pgTable('price_alerts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  itemId: uuid('item_id')
+    .notNull()
+    .references(() => items.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 /** Tabela de bug reports — usuários podem reportar bugs diretamente no app */
 export const bugReports = pgTable('bug_reports', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -69,4 +87,17 @@ export const bugReports = pgTable('bug_reports', {
   status: text('status').notNull().default('open'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+/** Tabela de compartilhamento de listas com permissões (owner/viewer/editor) */
+export const listShares = pgTable('list_shares', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  listId: uuid('list_id')
+    .notNull()
+    .references(() => lists.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').unique(),
+  permission: text('permission').notNull().default('viewer').$type<'owner' | 'editor' | 'viewer'>(),
+  sharedBy: uuid('shared_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });

@@ -93,6 +93,7 @@ export function BugReportButton({ open, onOpenChange }: BugReportButtonProps = {
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-24 right-6 z-30 w-14 h-14 bg-[var(--app-accent)] text-white rounded-full shadow-lg hover:opacity-90 transition-opacity flex items-center justify-center"
+          style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
           aria-label="Reportar bug"
           title="Reportar bug"
         >
@@ -100,7 +101,6 @@ export function BugReportButton({ open, onOpenChange }: BugReportButtonProps = {
         </button>
       )}
 
-      {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={handleClose}>
           <div
@@ -120,6 +120,7 @@ export function BugReportButton({ open, onOpenChange }: BugReportButtonProps = {
                 onClick={handleClose}
                 className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors"
                 aria-label="Fechar"
+                title="Fechar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

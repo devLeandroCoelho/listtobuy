@@ -1,43 +1,15 @@
 import { vi, type Mock } from 'vitest';
 
-/**
- * Helper de testes: mock do Supabase client usado pelos route handlers.
- *
- * Os route handlers importam `createClient` de `@/lib/supabase/server`.
- * Nos testes, mockamos esse módulo com `vi.mock('@/lib/supabase/server')`
- * e devolvemos o objeto criado por `createSupabaseMock`, que reproduz a
- * cadeia de chamadas utilizada nas rotas:
- *
- *   auth.getUser() → { data: { user } }
- *   from('lists').insert(...).select().single()
- *   from('lists').select('*').eq('id', id).single()
- *   from('lists').delete().eq('id', id)
- *   from('items').select(...).order(...).limit(n)[.ilike(...)]
- *   from('users').select('id').eq('email', email).maybeSingle()
- *   from('list_shares').select('id').eq('list_id', l).eq('user_id', u).maybeSingle()
- *   from('list_shares').insert(...).select().single()
- *   from('list_shares').delete().eq('id', id)
- *
- * Os mocks individuais ficam expostos em `mocks` para asserções
- * (ex.: verificar payloads de insert/delete e o escape de wildcards).
- */
-
 export type MockUser = { id: string; email?: string } | null;
 
 export interface SupabaseBehavior {
-  /** Usuário retornado por auth.getUser(). Default: { id: 'user-1' }. Use null p/ testar 401. */
   user?: MockUser;
-  /** Resultado de from('lists')...single() (POST e GET por id). Default: { data: null, error: null }. */
   lists?: { data?: unknown; error?: unknown };
-  /** Resultado de from('users')...single()/maybeSingle() (busca por email). Default: { data: null, error: null }. */
   users?: { data?: unknown; error?: unknown };
-  /** Resultado de from('items')...single() (GET lista e suggestions). Default: { data: [], error: null }. */
   items?: { data?: unknown; error?: unknown };
-  /** Resultado de from('prices')...single() (GET por item e POST/upsert). Default: { data: [], error: null }. */
   prices?: { data?: unknown; error?: unknown };
-  /** Resultado de from('list_shares')...maybeSingle() (POST shares). Default: { data: null, error: null }. */
   list_shares?: { data?: unknown; error?: unknown };
-  /** Erro retornado por from('lists').delete().eq(). Default: null (sucesso). */
+  price_alerts?: { data?: unknown; error?: unknown };
   deleteError?: unknown;
 }
 
@@ -71,6 +43,14 @@ export interface SupabaseMock {
     listSharesInsert: Mock;
     listSharesDelete: Mock;
     listSharesDeleteEq: Mock;
+    priceAlertsSelect: Mock;
+    priceAlertsEq: Mock;
+    priceAlertsSingle: Mock;
+    priceAlertsMaybeSingle: Mock;
+    priceAlertsInsert: Mock;
+    priceAlertsUpdate: Mock;
+    priceAlertsDelete: Mock;
+    priceAlertsDeleteEq: Mock;
   };
 }
 
@@ -103,13 +83,16 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
     error: behavior.list_shares?.error ?? null,
   };
 
+  const priceAlertsResult = {
+    data: behavior.price_alerts?.data ?? null,
+    error: behavior.price_alerts?.error ?? null,
+  };
+
   const deleteError = behavior.deleteError ?? null;
 
   const auth = { getUser: vi.fn().mockResolvedValue({ data: { user } }) };
 
-  // Cadeias de `lists`
   const single = vi.fn().mockResolvedValue(listsResult);
-  // Suporta encadeamento `.eq()` repetido (ex.: .eq('id').eq('user_id').single())
   const selectEq = vi.fn(() => ({ eq: selectEq, single }));
   const select = vi.fn().mockReturnValue({ eq: selectEq });
   const insert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) });
@@ -118,12 +101,9 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
 
   const updateSingle = vi.fn().mockResolvedValue(listsResult);
   const updateSelect = vi.fn().mockReturnValue({ single: updateSingle });
-  const updateEq = vi.fn(() => ({ select: updateSelect }));
+  const updateEq = vi.fn(() => ({ eq: updateEq, select: updateSelect }));
   const update = vi.fn().mockReturnValue({ eq: updateEq });
 
-  // Query builder thenable para `items` (suggestions):
-  // o handler faz `await query` e, se houver `q`, chama `query.ilike(...)`.
-  // Por isso o objeto precisa ser thenable E ter `.ilike()` retornando ele mesmo.
   const itemsQuery: Record<string, unknown> = {
     then(resolve: (value: unknown) => void) {
       resolve(itemsResult);
@@ -135,18 +115,15 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   const itemsOrder = vi.fn().mockReturnValue(itemsQuery);
   const itemsSelect = vi.fn().mockReturnValue({
     eq: vi.fn().mockReturnValue({
-      // Thenable: .eq() sozinho (ex.: duplicate) pode ser aguardado via await
       then(resolve: (value: unknown) => void) {
         resolve(itemsResult);
       },
-      order: vi.fn().mockResolvedValue(itemsResult),
-      // Ownership check do POST /api/prices: .eq('id', item_id).single()
+      order: vi.fn().mockReturnValue({ limit: itemsOrder }),
       single: vi.fn().mockResolvedValue(itemsResult),
     }),
     order: vi.fn().mockReturnValue({ limit: itemsOrder }),
   });
 
-  // Cadeias de escrita de `items` (rotas de item: create/update/delete)
   const itemsSingle = vi.fn().mockResolvedValue(itemsResult);
   const itemsInsert = vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue({ single: itemsSingle }),
@@ -155,7 +132,6 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   const itemsUpdateEq = vi.fn(() => ({ eq: itemsUpdateEq, select: itemsUpdateSelect }));
   const itemsUpdate = vi.fn().mockReturnValue({ eq: itemsUpdateEq });
   const itemsDeleteResult = { error: deleteError ?? null, count: 1 };
-  // Suporta encadeamento `.delete(...).eq(...).eq(...)` (thenable no fim)
   const itemsDeleteEq: Mock = vi.fn(() => ({
     eq: itemsDeleteEq,
     then(resolve: (value: unknown) => void) {
@@ -164,26 +140,26 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   }));
   const itemsDelete = vi.fn().mockReturnValue({ eq: itemsDeleteEq });
 
-  // Cadeias de `prices` (GET por item e POST/upsert)
-  const pricesSelect = vi.fn().mockReturnValue({
-    eq: vi.fn().mockReturnValue({
-      order: vi.fn().mockResolvedValue(pricesResult),
+  const pricesEq = vi.fn(() => ({
+    eq: pricesEq,
+    neq: vi.fn().mockReturnValue({
+      order: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(pricesResult),
+      }),
     }),
-  });
+    order: vi.fn().mockResolvedValue(pricesResult),
+    single: vi.fn().mockResolvedValue(pricesResult),
+  }));
+  const pricesSelect = vi.fn().mockReturnValue({ eq: pricesEq });
   const pricesUpsertSingle = vi.fn().mockResolvedValue(pricesResult);
   const pricesUpsert = vi.fn().mockReturnValue({
     select: vi.fn().mockReturnValue({ single: pricesUpsertSingle }),
   });
 
-  // Cadeias de `users` (busca por email no POST /api/shares):
-  // from('users').select('id').eq('email', email).maybeSingle()
   const usersSingle = vi.fn().mockResolvedValue(usersResult);
   const usersEq = vi.fn(() => ({ single: usersSingle, maybeSingle: usersSingle }));
   const usersSelect = vi.fn().mockReturnValue({ eq: usersEq });
 
-  // Cadeias de `list_shares` (POST/DELETE /api/shares):
-  // select(...).eq(...).eq(...).maybeSingle() (anti-enumeração/idempotência)
-  // e insert(...).select().single() / delete().eq('id', id)
   const listSharesSingle = vi.fn().mockResolvedValue(listSharesResult);
   const listSharesMaybeSingle = vi.fn().mockResolvedValue(listSharesResult);
   const listSharesEq = vi.fn(() => ({
@@ -197,6 +173,32 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
   });
   const listSharesDeleteEq = vi.fn().mockResolvedValue({ error: deleteError });
   const listSharesDelete = vi.fn().mockReturnValue({ eq: listSharesDeleteEq });
+
+  const priceAlertsSingle = vi.fn().mockResolvedValue(priceAlertsResult);
+  const priceAlertsMaybeSingle = vi.fn().mockResolvedValue(priceAlertsResult);
+  const priceAlertsEq = vi.fn(() => ({
+    eq: priceAlertsEq,
+    single: priceAlertsSingle,
+    maybeSingle: priceAlertsMaybeSingle,
+    order: vi.fn().mockResolvedValue(priceAlertsResult),
+    then(resolve: (value: unknown) => void) {
+      resolve(priceAlertsResult);
+    },
+  }));
+  const priceAlertsSelect = vi.fn().mockReturnValue({ eq: priceAlertsEq });
+  const priceAlertsUpdateSelect = vi.fn().mockReturnValue({ single: priceAlertsSingle });
+  const priceAlertsUpdateEq = vi.fn(() => ({ eq: priceAlertsUpdateEq, select: priceAlertsUpdateSelect }));
+  const priceAlertsUpdate = vi.fn().mockReturnValue({ eq: priceAlertsUpdateEq });
+  const priceAlertsDeleteEq = vi.fn(() => ({
+    eq: priceAlertsDeleteEq,
+    count: 1,
+    then(resolve: (value: unknown) => void) {
+      resolve({ error: deleteError ?? null, count: 1 });
+    },
+  }));
+  const priceAlertsDelete = vi.fn().mockReturnValue({ eq: priceAlertsDeleteEq });
+  const priceAlertsInsertSelect = vi.fn().mockReturnValue({ single: priceAlertsSingle });
+  const priceAlertsInsert = vi.fn().mockReturnValue({ select: priceAlertsInsertSelect });
 
   const from = vi.fn((table: string) => {
     if (table === 'lists') {
@@ -222,6 +224,20 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
         insert: listSharesInsert,
         eq: listSharesEq,
         delete: listSharesDelete,
+      };
+    }
+    if (table === 'price_alerts') {
+      return {
+        select: priceAlertsSelect,
+        insert: priceAlertsInsert,
+        update: priceAlertsUpdate,
+        delete: priceAlertsDelete,
+        eq: priceAlertsEq,
+      };
+    }
+    if (table === 'list_activity') {
+      return {
+        insert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn() }) }),
       };
     }
     throw new Error(`Tabela não mockada no helper de testes: "${table}"`);
@@ -257,6 +273,14 @@ export function createSupabaseMock(behavior: SupabaseBehavior = {}): SupabaseMoc
       listSharesInsert,
       listSharesDelete,
       listSharesDeleteEq,
+      priceAlertsSelect,
+      priceAlertsEq,
+      priceAlertsSingle,
+      priceAlertsMaybeSingle,
+      priceAlertsInsert,
+      priceAlertsUpdate,
+      priceAlertsDelete,
+      priceAlertsDeleteEq,
     },
   };
 }

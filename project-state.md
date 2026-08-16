@@ -171,3 +171,13 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | Cookies | ✅ Diferenciados em essenciais (sessão/auth) e não essenciais (analytics/marketing) com bloqueio até consentimento |
 | Lembrar credencial | ✅ Implementado no login (`localStorage` com apenas email) |
 | Footer/Header links | ✅ Link &quot;Privacidade&quot; nos headers + footer compartilhado com links para `/privacy` e `/terms` em todas as páginas |
+
+## 13. Histórico de Compras por Mês (issue #82, agosto 2026)
+| Item | Status |
+|---|---|
+| Página `/dashboard/stats` | ✅ Implementada — estatísticas de compras por mês |
+| API `/api/stats` | ✅ Implementada — GET com agregações por mês |
+| Gráfico CSS puro | ✅ Barras de evolução de gastos por mês |
+| Itens mais comprados | ✅ Top 10 por frequência |
+| Comparação mês anterior | ✅ Percentual de variação |
+| Testes | ✅ 3 testes vitest (401, vazio, completo) |

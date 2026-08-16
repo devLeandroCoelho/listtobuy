@@ -18,13 +18,16 @@ const LIST_ID = 'list-123';
 const ITEM_ID = 'item-1';
 const BASE_URL = 'http://localhost';
 
+function listMock() {
+  return { id: LIST_ID, user_id: 'user-1' };
+}
+
 describe('POST /api/lists/[id]/items (category)', () => {
   let mock: SupabaseMock;
   let createClientMock: Mock;
 
   beforeEach(() => {
-    // Lista existente (passa no check de ownership antes do insert)
-    mock = createSupabaseMock({ lists: { data: { id: LIST_ID } } });
+    mock = createSupabaseMock({ lists: { data: listMock() } });
     createClientMock = vi.mocked(createClient);
     createClientMock.mockResolvedValue(mock as never);
   });
@@ -43,10 +46,10 @@ describe('POST /api/lists/[id]/items (category)', () => {
       list_id: LIST_ID,
       name: 'Maçã',
       category: 'hortifruti',
-      completed: 0, // banco devolve number (NUMERIC)
+      completed: 0,
     };
     mock = createSupabaseMock({
-      lists: { data: { id: LIST_ID } },
+      lists: { data: listMock() },
       items: { data: created },
     });
     createClientMock.mockResolvedValue(mock as never);
@@ -57,7 +60,7 @@ describe('POST /api/lists/[id]/items (category)', () => {
     );
 
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ item: { ...created, completed: '0', price: null } });
+    expect(await res.json()).toEqual({ item: { ...created, completed: '0', price: null, reminderDate: null, reminderNotified: '0' } });
     expect(mock.mocks.itemsInsert).toHaveBeenCalledWith({
       list_id: LIST_ID,
       name: 'Maçã',
@@ -72,10 +75,10 @@ describe('POST /api/lists/[id]/items (category)', () => {
       id: ITEM_ID,
       list_id: LIST_ID,
       name: 'Maçã',
-      completed: 0, // o banco devolve number
+      completed: 0,
     };
     mock = createSupabaseMock({
-      lists: { data: { id: LIST_ID } },
+      lists: { data: listMock() },
       items: { data: created },
     });
     createClientMock.mockResolvedValue(mock as never);
@@ -92,6 +95,9 @@ describe('POST /api/lists/[id]/items (category)', () => {
   });
 
   it('category com trim aplicado no insert', async () => {
+    mock = createSupabaseMock({ lists: { data: listMock() }, items: { data: { id: ITEM_ID, list_id: LIST_ID, name: 'Pão', category: 'padaria', completed: 0 } } });
+    createClientMock.mockResolvedValue(mock as never);
+
     const res = await createItem(
       makePostRequest({ name: 'Pão', category: '  padaria  ' }),
       { params: Promise.resolve({ id: LIST_ID }) }
@@ -104,6 +110,9 @@ describe('POST /api/lists/[id]/items (category)', () => {
   });
 
   it('category null → insere sem categoria (não categorizado)', async () => {
+    mock = createSupabaseMock({ lists: { data: listMock() }, items: { data: { id: ITEM_ID, list_id: LIST_ID, name: 'Leite', category: null, completed: 0 } } });
+    createClientMock.mockResolvedValue(mock as never);
+
     const res = await createItem(
       makePostRequest({ name: 'Leite', category: null }),
       { params: Promise.resolve({ id: LIST_ID }) }
@@ -116,6 +125,9 @@ describe('POST /api/lists/[id]/items (category)', () => {
   });
 
   it('sem category no body → NÃO inclui category no insert (coluna NULL)', async () => {
+    mock = createSupabaseMock({ lists: { data: listMock() }, items: { data: { id: ITEM_ID, list_id: LIST_ID, name: 'Arroz', completed: 0 } } });
+    createClientMock.mockResolvedValue(mock as never);
+
     const res = await createItem(
       makePostRequest({ name: 'Arroz' }),
       { params: Promise.resolve({ id: LIST_ID }) }
@@ -154,7 +166,7 @@ describe('POST /api/lists/[id]/items (category)', () => {
   });
 
   it('sem autenticação → 401', async () => {
-    mock = createSupabaseMock({ user: null, lists: { data: { id: LIST_ID } } });
+    mock = createSupabaseMock({ user: null, lists: { data: listMock() } });
     createClientMock.mockResolvedValue(mock as never);
 
     const res = await createItem(
@@ -173,6 +185,7 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
 
   beforeEach(() => {
     mock = createSupabaseMock({
+      lists: { data: listMock() },
       items: { data: { id: ITEM_ID, list_id: LIST_ID, name: 'Maçã' } },
     });
     createClientMock = vi.mocked(createClient);
@@ -192,9 +205,9 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
       id: ITEM_ID,
       name: 'Maçã',
       category: 'laticinios',
-      completed: 0, // banco devolve number (NUMERIC)
+      completed: 0,
     };
-    mock = createSupabaseMock({ items: { data: updated } });
+    mock = createSupabaseMock({ lists: { data: listMock() }, items: { data: updated } });
     createClientMock.mockResolvedValue(mock as never);
 
     const res = await updateItem(
@@ -203,7 +216,7 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ item: { ...updated, completed: '0', price: null } });
+    expect(await res.json()).toEqual({ item: { ...updated, completed: '0', price: null, reminderDate: null, reminderNotified: '0' } });
     expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ category: 'laticinios' });
   });
 
@@ -211,9 +224,9 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     const updated = {
       id: ITEM_ID,
       name: 'Maçã',
-      completed: 1, // o banco devolve number
+      completed: 1,
     };
-    mock = createSupabaseMock({ items: { data: updated } });
+    mock = createSupabaseMock({ lists: { data: listMock() }, items: { data: updated } });
     createClientMock.mockResolvedValue(mock as never);
 
     const res = await updateItem(
@@ -225,11 +238,13 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     const body = await res.json();
     expect(body.item.completed).toBe('1');
     expect(typeof body.item.completed).toBe('string');
-    // INSERT/UPDATE continua gravando number na coluna NUMERIC
     expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ completed: 1 });
   });
 
   it('category null → limpa a categoria no update', async () => {
+    mock = createSupabaseMock({ lists: { data: listMock() }, items: { data: { id: ITEM_ID, list_id: LIST_ID, name: 'Maçã', category: null, completed: 0 } } });
+    createClientMock.mockResolvedValue(mock as never);
+
     const res = await updateItem(
       makePutRequest({ category: null }),
       { params: Promise.resolve({ id: LIST_ID, itemId: ITEM_ID }) }
@@ -263,7 +278,7 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     expect(mock.mocks.itemsUpdate).not.toHaveBeenCalled();
   });
 
-  it('category inválida com outros campos → 400 e nada é atualizado', async () => {
+  it('category inválido com outros campos → 400 e nada é atualizado', async () => {
     const res = await updateItem(
       makePutRequest({ name: 'X', category: true }),
       { params: Promise.resolve({ id: LIST_ID, itemId: ITEM_ID }) }
@@ -279,7 +294,7 @@ describe('DELETE /api/lists/[id]/items/[itemId]', () => {
   let createClientMock: Mock;
 
   beforeEach(() => {
-    mock = createSupabaseMock();
+    mock = createSupabaseMock({ lists: { data: listMock() } });
     createClientMock = vi.mocked(createClient);
     createClientMock.mockResolvedValue(mock as never);
   });

@@ -60,7 +60,7 @@ export function ActivityLog({ listId }: ActivityLogProps) {
               </span>
               <span>{ACTION_LABELS[activity.action] || activity.action}</span>
               {itemName && (
-                <span className="font-medium text-gray-800">"{itemName}"</span>
+                <span className="font-medium text-gray-800">&quot;{itemName}&quot;</span>
               )}
             </div>
           );

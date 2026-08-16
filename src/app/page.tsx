@@ -169,7 +169,7 @@ export default function Home() {
                 <div className="text-3xl mb-4" aria-hidden="true">📋</div>
                 <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Sugestões por Receita</h3>
                 <p className="text-[var(--app-text-secondary)]">
-                  Digite uma receita (ex: "Macarrão a Carbonara") e gere a lista de ingredientes automaticamente.
+                  Digite uma receita (ex: &quot;Macarrão a Carbonara&quot;) e gere a lista de ingredientes automaticamente.
                 </p>
               </div>
               <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
@@ -227,7 +227,7 @@ export default function Home() {
             <div className="grid md:grid-cols-2 gap-8">
               <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
                 <p className="text-[var(--app-text-secondary)] italic mb-4">
-                  "Antes gastava R$ 200 a mais por mês esquecendo itens. Com o ListToBuy, defino o orçamento e zero estouro."
+                  &quot;Antes gastava R$ 200 a mais por mês esquecendo itens. Com o ListToBuy, defino o orçamento e zero estouro.&quot;
                 </p>
                 <p className="font-semibold text-[var(--app-text)]">
                   Marina S., São Paulo
@@ -235,7 +235,7 @@ export default function Home() {
               </div>
               <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
                 <p className="text-[var(--app-text-secondary)] italic mb-4">
-                  "Compartilho a lista com a esposa e o controle de preços me mostra quando vale a pena comprar a promoção."
+                  &quot;Compartilho a lista com a esposa e o controle de preços me mostra quando vale a pena comprar a promoção.&quot;
                 </p>
                 <p className="font-semibold text-[var(--app-text)]">
                   Carlos M., Belo Horizonte

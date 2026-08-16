@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { RemoteUser } from '@/lib/realtime/use-list-realtime';
 
 interface PresenceIndicatorProps {
@@ -8,9 +8,10 @@ interface PresenceIndicatorProps {
 }
 
 export function PresenceIndicator({ users }: PresenceIndicatorProps) {
+  const [now] = useState(() => Date.now());
+
   if (users.length === 0) return null;
 
-  const now = useMemo(() => Date.now(), []);
   const onlineUsers = users.filter((u) => {
     const onlineAt = new Date(u.online_at).getTime();
     return now - onlineAt < 5 * 60 * 1000;

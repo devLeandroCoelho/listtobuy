@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializePriceRow, serializePriceRows } from '@/lib/list-items';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/prices — Registra preço de um item.
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: registro de preço (30/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['prices:create']);
+  if (limited) return limited;
 
   const body = await request.json();
   const { item_id, value, month } = body;

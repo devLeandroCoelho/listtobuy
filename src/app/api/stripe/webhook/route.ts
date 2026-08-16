@@ -4,6 +4,10 @@ import { stripe } from '@/lib/stripe';
 import { headers } from 'next/headers';
 
 export async function POST(request: Request) {
+  if (!stripe) {
+    return NextResponse.json({ error: 'Stripe não configurado' }, { status: 500 });
+  }
+
   const body = await request.text();
   const signature = (await headers()).get('stripe-signature') as string;
 

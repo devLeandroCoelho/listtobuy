@@ -46,13 +46,14 @@ Analytics:   a definir
 | Mobile | 🟢 Fix autocomplete <375px mergeado (PR #29, 12/08/2026) — issue #23 encerrada |
 | Setup inicial | 🟢 PRs #1–#4 — repo, schema, Supabase client, layout |
 | Landing Page + Auth | 🟢 PR #6 (feat/landing-page-auth) — Hero, Features, Pricing, Auth |
+| Landing Page vendas | ✅ Issue #127 concluída (PR #155) — seção de prova social (stats + depoimentos), features PWA/offline/sugestões por receita, CTA 'Criar Minha Lista Grátis' |
 | Lists CRUD | 🟢 PR #7 (feat/lists-crud) + **PR #18 (rotas API de listas)** — sem as rotas, criar lista dava 404 |
 | Price Tracking + Budget Views | 🟢 PR #8 (feat/prices-views) — API preços, BudgetSummary, página lista |
 | Price History | 🟢 PR #11 (feat/price-history) — Componente PriceHistory, API /api/prices/history |
 | List Sharing | 🟢 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
 | Fixes | 🟢 PRs #9, #10, #13 (types/ESLint/CI env), #14 (secrets gitignore), #15 (migration 001), #17 (RLS registro) |
 | Contrato price | 🟢 **PR #60 (fix/56-price-contract, 13/08)** — `price`/`value` normalizado como `number \| null` na fronteira (`normalizePrice` em `src/lib/list-items.ts`, aplicado em `GET/POST /api/prices`); PostgREST devolve NUMERIC como string em numeral alto → soma do orçamento (#56) quebrava por concatenação. Testes: 99/99 (antes 82), tsc 0 erros, lint limpo. Aguardando review do dev-manager |
-| LGPD | 🟢 Issue #140 aberta — adequação em andamento (cookie consent, política de privacidade, termos de uso, direito ao esquecimento, portabilidade) |
+| LGPD | ✅ Issue #140 concluída — cookie consent, política de privacidade, termos de uso, direito ao esquecimento e portabilidade implementados |
 | IA / Receitas | 🟡 **No roadmap (Fase 2)** — feature "Lista com IA": ao criar uma lista, o usuário pode digitar uma receita (ex: "Macarrão a Carbonara") e selecionar "Gerar com IA". O app sugere automaticamente uma lista de ingredientes/itens para comprar e exibe a receita correspondente. A lista gerada pode ser editada antes de salvar. |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
@@ -157,3 +158,16 @@ _(n/a — banco de produção criado com RLS habilitado; sem pendências de inte
 | Métrica | Valor |
 |---|---|---|
 | Status | ✅ Produção ativa na Vercel · CI verde (PRs #1–#13 merged) · Supabase migrado (001/002) com RLS · Fase 1 (MVP) ~95% — falta sugestão de itens, validações/UX finais e Stripe |
+
+## 12. LGPD — Adequação (issue #140, agosto 2026)
+
+| Item | Status |
+|---|---|
+| Cookie consent banner | ✅ Implementado — `src/components/CookieConsent.tsx` com aceitar/recusar e persistência em `localStorage` |
+| Política de Privacidade | ✅ Página `/privacy` com texto LGPD completo (dados coletados, finalidade, armazenamento, direitos, base legal, retenção) |
+| Termos de Uso | ✅ Página `/terms` |
+| Direito ao esquecimento | ✅ Rota `POST /api/user/delete` + botão &quot;Excluir minha conta&quot; no dashboard |
+| Portabilidade de dados | ✅ Rota `GET /api/user/export` + botão &quot;Exportar meus dados&quot; no dashboard |
+| Cookies | ✅ Diferenciados em essenciais (sessão/auth) e não essenciais (analytics/marketing) com bloqueio até consentimento |
+| Lembrar credencial | ✅ Implementado no login (`localStorage` com apenas email) |
+| Footer/Header links | ✅ Link &quot;Privacidade&quot; nos headers + footer compartilhado com links para `/privacy` e `/terms` em todas as páginas |

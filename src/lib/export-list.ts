@@ -224,3 +224,105 @@ export function printPDF(list: ListData, items: ItemData[], scope: ExportScope):
     }, 250);
   }
 }
+
+export function generateJSON(list: ListData, items: ItemData[], scope: ExportScope): string {
+  const filteredItems = scope === 'pending' ? items.filter((i) => i.completed === '0') : items;
+  const completedItems = items.filter((i) => i.completed === '1');
+  const totalSpent = completedItems.reduce((sum, item) => sum + toNumber(item.price), 0);
+
+  return JSON.stringify(
+    {
+      exported_at: new Date().toISOString(),
+      list: {
+        id: list.id,
+        name: list.name,
+        month: list.month,
+        budget: toNumber(list.budget),
+      },
+      summary: {
+        total_items: filteredItems.length,
+        completed: completedItems.length,
+        pending: filteredItems.filter((i) => i.completed === '0').length,
+        total_spent: totalSpent,
+      },
+      items: filteredItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        price: toNumber(item.price),
+        category: getCategoryName(item.category),
+        status: item.completed === '1' ? 'completed' : 'pending',
+      })),
+    },
+    null,
+    2
+  );
+}
+
+export function downloadJSON(list: ListData, items: ItemData[], scope: ExportScope): void {
+  const json = generateJSON(list, items, scope);
+  const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = list.name.replace(/[^a-zA-Z0-9À-ÿ]/g, '_').replace(/_+/g, '_');
+  a.download = `${safeName}_${list.month}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export function generateICS(list: ListData, items: ItemData[], scope: ExportScope): string {
+  const filteredItems = scope === 'pending' ? items.filter((i) => i.completed === '0') : items;
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+  const vevents = filteredItems
+    .map((item) => {
+      const uid = `${item.id}@listtobuy.app`;
+      const status = item.completed === '1' ? 'COMPLETED' : 'NEEDS-ACTION';
+      const description = [
+        `Quantidade: ${item.quantity} ${item.unit}`,
+        `Categoria: ${getCategoryName(item.category)}`,
+        item.price != null ? `Preço: ${formatPrice(item.price)}` : '',
+        `Status: ${status}`,
+      ]
+        .filter(Boolean)
+        .join('\\n');
+
+      return [
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `DTSTAMP:${now}`,
+        `SUMMARY:${item.name}`,
+        `DESCRIPTION:${description}`,
+        'STATUS:' + status,
+        'END:VEVENT',
+      ].join('\r\n');
+    })
+    .join('\r\n');
+
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//ListToBuy//List//PT-BR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    vevents,
+    'END:VCALENDAR',
+  ].join('\r\n');
+}
+
+export function downloadICS(list: ListData, items: ItemData[], scope: ExportScope): void {
+  const ics = generateICS(list, items, scope);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = list.name.replace(/[^a-zA-Z0-9À-ÿ]/g, '_').replace(/_+/g, '_');
+  a.download = `${safeName}_${list.month}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

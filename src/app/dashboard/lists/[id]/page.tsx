@@ -17,7 +17,7 @@ import { requestNotificationPermission, scheduleLocalNotification } from '@/lib/
 import { BugReportButton } from '@/components/BugReportButton';
 import ShareModal from '@/components/ShareModal';
 import { CategoryChip } from '@/components/CategoryChip';
-import { downloadCSV, printPDF, type ExportScope } from '@/lib/export-list';
+import { downloadCSV, printPDF, downloadJSON, downloadICS, type ExportScope } from '@/lib/export-list';
 import { getTemplateById } from '@/lib/templates';
 import { PresenceIndicator } from '@/components/PresenceIndicator';
 import { ActivityLog } from '@/components/ActivityLog';
@@ -199,7 +199,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado do modal de exportação
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf'>('csv');
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf' | 'json' | 'ics'>('csv');
   const [exportScope, setExportScope] = useState<ExportScope>('all');
 
   // Refs p/ foco e scroll do painel de histórico inline (D5)
@@ -916,14 +916,21 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   }, [id, list, closeEditModal, showSuccess]);
 
-  /** Exporta a lista para CSV ou PDF */
+  /** Exporta a lista para CSV, PDF, JSON ou iCal */
   const handleExport = useCallback(() => {
     if (!list) return;
     if (exportFormat === 'csv') {
       downloadCSV(list, items, exportScope);
       showSuccess('Lista exportada como CSV');
-    } else {
+    } else if (exportFormat === 'pdf') {
       printPDF(list, items, exportScope);
+      showSuccess('Lista exportada como PDF');
+    } else if (exportFormat === 'json') {
+      downloadJSON(list, items, exportScope);
+      showSuccess('Lista exportada como JSON');
+    } else if (exportFormat === 'ics') {
+      downloadICS(list, items, exportScope);
+      showSuccess('Lista exportada como iCal');
     }
     setIsExportModalOpen(false);
   }, [list, items, exportFormat, exportScope, showSuccess]);
@@ -1908,11 +1915,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">Formato</label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setExportFormat('csv')}
-                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
                       exportFormat === 'csv'
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
@@ -1923,13 +1930,35 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <button
                     type="button"
                     onClick={() => setExportFormat('pdf')}
-                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
                       exportFormat === 'pdf'
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
                     }`}
                   >
                     PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('json')}
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportFormat === 'json'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('ics')}
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportFormat === 'ics'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    iCal
                   </button>
                 </div>
               </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ShareList } from '@/components/ShareList';
+import QRCode from 'qrcode';
 
 interface Share {
   id: string;
@@ -21,6 +22,7 @@ interface ShareModalProps {
 export default function ShareModal({ open, onOpenChange, listId, listName }: ShareModalProps) {
   const [linkPermission, setLinkPermission] = useState<'viewer' | 'editor'>('viewer');
   const [generatedLink, setGeneratedLink] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState('');
   const [shares, setShares] = useState<Share[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -37,6 +39,20 @@ export default function ShareModal({ open, onOpenChange, listId, listName }: Sha
       loadShares();
     }
     setLoading(false);
+  };
+
+  const generateQR = async () => {
+    if (!generatedLink) return;
+    try {
+      const url = await QRCode.toDataURL(generatedLink, {
+        width: 200,
+        margin: 2,
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+      setQrDataUrl(url);
+    } catch {
+      // fallback silencioso
+    }
   };
 
   const loadShares = async () => {
@@ -97,14 +113,28 @@ export default function ShareModal({ open, onOpenChange, listId, listName }: Sha
               </button>
             </div>
             {generatedLink && (
-              <div className="flex gap-2">
-                <input readOnly value={generatedLink} className="flex-1 px-3 py-2 border rounded-lg text-sm" />
-                <button
-                  onClick={() => navigator.clipboard.writeText(generatedLink)}
-                  className="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300"
-                >
-                  Copiar
-                </button>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input readOnly value={generatedLink} className="flex-1 px-3 py-2 border rounded-lg text-sm" />
+                  <button
+                    onClick={() => navigator.clipboard.writeText(generatedLink)}
+                    className="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300"
+                  >
+                    Copiar
+                  </button>
+                </div>
+                <div className="flex justify-center">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="QR Code do link" className="w-40 h-40 rounded-lg border border-gray-200" />
+                  ) : (
+                    <button
+                      onClick={generateQR}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                    >
+                      Gerar QR Code
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>

@@ -30,7 +30,7 @@ describe('POST /api/shares', () => {
   it('compartilha com sucesso -> 201', async () => {
     const list = { id: 'list-1', user_id: 'user-1' };
     const targetUser = { id: 'user-2' };
-    const share = { id: 'share-1', list_id: 'list-1', user_id: 'user-2', permission: 'view' };
+    const share = { id: 'share-1', list_id: 'list-1', user_id: 'user-2', permission: 'viewer' };
 
     mock = createSupabaseMock({
       user: { id: 'user-1' },
@@ -136,5 +136,27 @@ describe('POST /api/shares', () => {
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Erro interno' });
+  });
+
+  it('gera link publico com sucesso -> 201', async () => {
+    const list = { id: 'list-1', user_id: 'user-1' };
+    const share = { id: 'share-1', list_id: 'list-1', token: 'token-123', permission: 'viewer' };
+
+    mock = createSupabaseMock({
+      user: { id: 'user-1' },
+      lists: { data: list },
+    });
+    createClientMock.mockResolvedValue(mock as never);
+
+    mock.mocks.listSharesInsert.mockReturnValue({
+      select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: share, error: null }) }),
+    } as unknown as ReturnType<typeof mock.mocks.listSharesInsert>);
+
+    const res = await shareList(makeShareRequest({ list_id: 'list-1', generate_link: true, permission: 'viewer' }));
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.data).toEqual(share);
+    expect(body.link).toContain('/share/');
   });
 });

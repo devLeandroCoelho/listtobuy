@@ -23,6 +23,8 @@
 export interface ItemLike {
   completed?: number | string | null;
   price?: unknown;
+  reminderDate?: unknown;
+  reminderNotified?: unknown;
   [key: string]: unknown;
 }
 
@@ -30,9 +32,11 @@ export interface ItemLike {
  * Item serializado: `completed` sempre string '0' (pendente) ou '1' (comprado)
  * e `price` sempre `number | null` (nunca string — ver issue #56).
  */
-export type SerializedItem<T extends ItemLike> = Omit<T, 'completed' | 'price'> & {
+export type SerializedItem<T extends ItemLike> = Omit<T, 'completed' | 'price' | 'reminderDate' | 'reminderNotified'> & {
   completed: string;
   price: number | null;
+  reminderDate: string | null;
+  reminderNotified: string;
 };
 
 /** Resultado do split pendentes/comprados. */
@@ -68,6 +72,23 @@ export function normalizePrice(price: unknown): number | null {
 }
 
 /**
+ * Normaliza `reminderDate` para `string | null` (contrato do client).
+ */
+export function normalizeReminderDate(reminderDate: unknown): string | null {
+  if (reminderDate === undefined || reminderDate === null) return null;
+  if (typeof reminderDate === 'string' && reminderDate.trim() === '') return null;
+  return String(reminderDate);
+}
+
+/**
+ * Normaliza `reminderNotified` para `'0' | '1'` (contrato do client).
+ */
+export function normalizeReminderNotified(reminderNotified: unknown): '0' | '1' {
+  const value = String(reminderNotified).trim();
+  return value === '1' ? '1' : '0';
+}
+
+/**
  * Serializa um item para a fronteira da API: `completed` sempre string e
  * `price` sempre number (ou null — item sem preço não quebra a soma, #56).
  */
@@ -76,6 +97,8 @@ export function serializeItem<T extends ItemLike>(item: T): SerializedItem<T> {
     ...item,
     completed: normalizeCompleted(item.completed),
     price: normalizePrice(item.price),
+    reminderDate: normalizeReminderDate(item.reminderDate),
+    reminderNotified: normalizeReminderNotified(item.reminderNotified),
   };
 }
 

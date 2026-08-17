@@ -1,17 +1,28 @@
 'use client';
 
 import { useState, useEffect, useCallback, use, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BudgetSummary } from '@/components/BudgetSummary';
 import { PriceHistory } from '@/components/PriceHistory';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
-import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
+import { getCategoryById, guessCategoryByName, CATEGORIES, CategoryConfig } from '@/lib/categories';
 import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
 import { sumCompletedSpent } from '@/lib/budget';
+import { sanitizePriceInput, parsePrice } from '@/lib/price';
 import { buildQuickAddPayload } from '@/lib/list-items';
+import { requestNotificationPermission, scheduleLocalNotification } from '@/lib/reminders';
 import { BugReportButton } from '@/components/BugReportButton';
+import ShareModal from '@/components/ShareModal';
+import { CategoryChip } from '@/components/CategoryChip';
+import { downloadCSV, printPDF, downloadJSON, downloadICS, type ExportScope } from '@/lib/export-list';
+import { getTemplateById } from '@/lib/templates';
+import { PresenceIndicator } from '@/components/PresenceIndicator';
+import { ActivityLog } from '@/components/ActivityLog';
+import { useListRealtime } from '@/lib/realtime/use-list-realtime';
+import { useListItemsSync } from '@/lib/realtime/use-list-items-sync';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -49,6 +60,7 @@ interface ListData {
   name: string;
   month: string;
   budget: string;
+  category?: string | null;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -65,6 +77,8 @@ interface ItemData {
   updated_at: string;
   price?: number | string | null; // preço registrado (number ou string, tolerado na soma)
   category?: string | null; // seção do mercado (null = não categorizado)
+  reminder_date?: string | null; // data/hora do lembrete (null = sem lembrete)
+  reminder_notified?: string; // '0' = não notificado, '1' = notificado
 }
 
 /** Formata mês para exibição (YYYY-MM → "Agosto de 2026") */
@@ -108,6 +122,11 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Estado de template (auto-aplicação ao criar lista a partir de template)
+  const searchParams = useSearchParams();
+  const templateId = searchParams.get('template');
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+
   // Estado do quick-add na barra de base (estilo Listonic)
   const [quickAddName, setQuickAddName] = useState('');
   const [quickAddError, setQuickAddError] = useState('');
@@ -127,16 +146,32 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado do modal de edição unificada
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editListName, setEditListName] = useState('');
+  const [editListCategory, setEditListCategory] = useState('');
   const [editListMonth, setEditListMonth] = useState('');
   const [editListBudget, setEditListBudget] = useState('');
   const [editListSaving, setEditListSaving] = useState(false);
   const [editListError, setEditListError] = useState('');
   const editModalTriggerRef = useRef<HTMLButtonElement | null>(null);
 
+  // Estado de colaboração em tempo real
+  const [currentUser, setCurrentUser] = useState<{ id: string; name?: string; email?: string } | null>(null);
+  const localUpdatedAtsRef = useRef<Map<string, string>>(new Map());
+
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
   const [savingPrice, setSavingPrice] = useState<Record<string, boolean>>({});
   const [focusPriceItemId, setFocusPriceItemId] = useState<string | null>(null);
+
+  // Estado de lembrete
+  const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
+  const [editReminderDate, setEditReminderDate] = useState('');
+  const [savingReminder, setSavingReminder] = useState<Record<string, boolean>>({});
+  const [reminderNotificationsEnabled, setReminderNotificationsEnabled] = useState(false);
+
+  // Estado de alertas de preço
+  const [priceAlerts, setPriceAlerts] = useState<Record<string, boolean>>({});
+  const [togglingAlert, setTogglingAlert] = useState<Record<string, boolean>>({});
+  const [priceVariations, setPriceVariations] = useState<Record<string, number | null>>({});
 
   // Estado de histórico de preços
   const [showPriceHistory, setShowPriceHistory] = useState<string | null>(null);
@@ -150,11 +185,22 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Estado de recolhimento do resumo no header sticky (colapsado por padrão)
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(true);
 
+  // Estado de calendário
+  const [isCalendarSheetOpen, setIsCalendarSheetOpen] = useState(false);
+  const [calendarData, setCalendarData] = useState<{ googleUrl: string; ics: string; title: string } | null>(null);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+
   // Estado do menu mobile (drawer)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Estado do modal de bug controlado localmente
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
+
+  // Estado do modal de exportação
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'pdf' | 'json' | 'ics'>('csv');
+  const [exportScope, setExportScope] = useState<ExportScope>('all');
 
   // Refs p/ foco e scroll do painel de histórico inline (D5)
   const historyToggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -191,12 +237,18 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       const rawItems: ItemData[] = data.list.items || [];
       const itemsWithPrices = await Promise.all(
         rawItems.map(async (item) => {
+          // Para cada item comprado, busca o preço registrado
           if (item.completed === '1') {
             try {
               const priceResponse = await fetch(`/api/prices?item_id=${item.id}`);
               if (priceResponse.ok) {
                 const priceData = await priceResponse.json();
-                const latestPrice = priceData.prices?.[0];
+                const prices = priceData.prices || [];
+                const latestPrice = prices[0];
+                const previousPrice = prices[1];
+                const variation = latestPrice && previousPrice
+                  ? ((latestPrice.value - previousPrice.value) / previousPrice.value) * 100
+                  : null;
                 return { ...item, price: latestPrice?.value ?? null };
               }
             } catch {
@@ -207,13 +259,106 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         })
       );
 
-      setItems(itemsWithPrices);
+      const computedVariations: Record<string, number | null> = {};
+      // Busca preferências de alerta de preço para itens com preço
+      const itemsWithAlerts = await Promise.all(
+        itemsWithPrices.map(async (item) => {
+          if (item.price != null) {
+            try {
+              const alertResponse = await fetch(`/api/price-alerts?item_id=${item.id}`);
+              if (alertResponse.ok) {
+                const alertData = await alertResponse.json();
+                if (alertData.alert) {
+                  setPriceAlerts((prev) => ({ ...prev, [item.id]: alertData.alert.enabled }));
+                }
+              }
+            } catch {
+              // Ignora erro de alerta
+            }
+            try {
+              const priceResponse = await fetch(`/api/prices?item_id=${item.id}`);
+              if (priceResponse.ok) {
+                const priceData = await priceResponse.json();
+                const prices = priceData.prices || [];
+                if (prices.length >= 2) {
+                  const current = prices[0].value;
+                  const previous = prices[1].value;
+                  if (previous > 0) {
+                    computedVariations[item.id] = ((current - previous) / previous) * 100;
+                  }
+                }
+              }
+            } catch {
+              // Ignora erro de variação
+            }
+          }
+          return item;
+        })
+      );
+      
+
+      setPriceVariations(computedVariations);
+      setItems(itemsWithAlerts);
       setLoading(false);
     } catch {
       setError('Erro de conexão');
       setLoading(false);
     }
   }, [id]);
+
+  // Realtime: presença e sincronização de itens
+  const { onlineUsers, trackPresence } = useListRealtime(id, currentUser?.id);
+  useListItemsSync(id);
+
+  /** Mantém mapa local de updated_at para last-write-wins */
+  useEffect(() => {
+    const map = new Map<string, string>();
+    items.forEach((item) => {
+      map.set(item.id, item.updated_at);
+    });
+    localUpdatedAtsRef.current = map;
+  }, [items]);
+
+  /** Escuta eventos de sincronização de itens em tempo real */
+  useEffect(() => {
+    const handleUpsert = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const remoteItem = detail as ItemData;
+      const localUpdatedAt = localUpdatedAtsRef.current.get(remoteItem.id);
+      if (!localUpdatedAt || remoteItem.updated_at > localUpdatedAt) {
+        localUpdatedAtsRef.current.set(remoteItem.id, remoteItem.updated_at);
+        setItems((prev) =>
+          prev.map((i) => (i.id === remoteItem.id ? { ...i, ...remoteItem } : i))
+        );
+      }
+    };
+
+    const handleDelete = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const itemId = detail.id as string;
+      localUpdatedAtsRef.current.delete(itemId);
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+    };
+
+    window.addEventListener('list-item-upsert', handleUpsert as EventListener);
+    window.addEventListener('list-item-delete', handleDelete as EventListener);
+    return () => {
+      window.removeEventListener('list-item-upsert', handleUpsert as EventListener);
+      window.removeEventListener('list-item-delete', handleDelete as EventListener);
+    };
+  }, []);
+
+  /** Atualiza presença ao focar/desfocar a página */
+  useEffect(() => {
+    const handleBlur = () => trackPresence(null);
+    const handleFocus = () => trackPresence(editingItemId || null);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [trackPresence, editingItemId]);
 
   /** Verifica autenticação e carrega dados */
   useEffect(() => {
@@ -232,6 +377,141 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
     checkAuthAndLoad();
   }, [supabase, router, loadData]);
+
+  /** Carrega usuário atual para presença */
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUser({
+          id: user.id,
+          name: (user.user_metadata as any)?.name || user.email?.split('@')[0],
+          email: user.email,
+        });
+      }
+    };
+    getCurrentUser();
+  }, [supabase]);
+
+  // Auto-aplica template se a lista foi criada a partir de um template e ainda não tem itens
+  useEffect(() => {
+    if (!templateId || !list || items.length > 0 || applyingTemplate) return;
+
+    const template = getTemplateById(templateId);
+    if (!template) return;
+
+    async function applyTemplate() {
+      if (!template) return;
+      setApplyingTemplate(true);
+      try {
+        await Promise.all(
+          template.items.map((item) =>
+            fetch(`/api/lists/${id}/items`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item),
+            })
+          )
+        );
+        await loadData();
+        router.replace(`/dashboard/lists/${id}`, { scroll: false });
+      } catch {
+        setError('Erro ao aplicar template');
+      } finally {
+        setApplyingTemplate(false);
+      }
+    }
+
+    applyTemplate();
+  }, [templateId, list, items.length, applyingTemplate, id, router, loadData]);
+
+  /** Salva lembrete de um item */
+  const handleSaveReminder = async (itemId: string) => {
+    setSavingReminder((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const response = await fetch(`/api/lists/${id}/items/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reminderDate: editReminderDate || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || 'Erro ao salvar lembrete');
+        return;
+      }
+
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, ...data.item } : i))
+      );
+      setEditingReminderId(null);
+      setEditReminderDate('');
+      showSuccess('Lembrete salvo!');
+    } catch {
+      setError('Erro de conexão');
+    } finally {
+      setSavingReminder((prev) => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  /** Inicia edição de lembrete de um item */
+  const startEditReminder = (item: ItemData) => {
+    setEditingReminderId(item.id);
+    setEditReminderDate(item.reminder_date || '');
+  };
+
+  /** Cancela edição de lembrete */
+  const cancelEditReminder = () => {
+    setEditingReminderId(null);
+    setEditReminderDate('');
+  };
+
+  /** Agenda notificações locais para lembretes pendentes */
+  const scheduleReminderNotifications = useCallback((items: ItemData[]) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const pendingReminders = items.filter((item) => {
+      if (!item.reminder_date || item.reminder_notified === '1') return false;
+      const reminderTime = new Date(item.reminder_date);
+      return reminderTime > new Date();
+    });
+
+    pendingReminders.forEach((item) => {
+      const reminderTime = new Date(item.reminder_date!).getTime();
+      const now = Date.now();
+      const delay = reminderTime - now;
+
+      if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+        setTimeout(() => {
+          if (Notification.permission === 'granted') {
+            scheduleLocalNotification('ListToBuy', `Lembrete: ${item.name}`);
+          }
+        }, delay);
+      }
+    });
+  }, []);
+
+
+  // Agenda notificações e solicita permissão
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const setupNotifications = async () => {
+      const permission = await requestNotificationPermission();
+      setReminderNotificationsEnabled(permission === 'granted');
+    };
+
+    setupNotifications();
+
+    // Reagenda notificações quando itens mudarem
+    if (items.length > 0) {
+      scheduleReminderNotifications(items);
+    }
+  }, [items, scheduleReminderNotifications]);
 
   /** Salva novo orçamento da lista (PATCH /api/lists/[id]) */
   const handleSaveBudget = useCallback(
@@ -437,6 +717,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditUnit(item.unit);
     setEditCategory(item.category ?? '');
     setEditFocusField(field);
+    trackPresence(item.id);
   };
 
   /** Cancela edição */
@@ -446,6 +727,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditQty('');
     setEditUnit('');
     setEditCategory('');
+    trackPresence(null);
   };
 
   /** Alterna o histórico de preços inline do item (single-open) */
@@ -467,6 +749,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     historyToggleRefs.current[itemId]?.focus();
   };
 
+
   /** Salva edição de item */
   const handleSaveEdit = async (itemId: string) => {
     setSavingEdit(true);
@@ -487,6 +770,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           unit: editUnit,
           // '' → null: limpa a categoria persistida e passa a detectar pelo nome
           category: editCategory === '' ? null : editCategory,
+          reminderDate: editReminderDate || null,
         }),
       });
 
@@ -539,6 +823,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     setEditListName(list.name);
     setEditListMonth(list.month);
     setEditListBudget(String(list.budget));
+    setEditListCategory(list.category || '');
     setEditListError('');
     setIsEditModalOpen(true);
     editModalTriggerRef.current?.focus();
@@ -581,6 +866,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           name: trimmedName,
           month: trimmedMonth,
           budget: Number(editListBudget) || 0,
+          category: editListCategory || null,
         }),
       });
 
@@ -597,7 +883,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     } finally {
       setEditListSaving(false);
     }
-  }, [id, list, editListName, editListMonth, editListBudget, closeEditModal, showSuccess]);
+  }, [id, list, editListName, editListMonth, editListBudget, editListCategory, closeEditModal, showSuccess]);
 
   /** Arquivar/desarquivar a lista a partir do modal de edição */
   const handleArchiveFromModal = useCallback(async () => {
@@ -630,14 +916,33 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   }, [id, list, closeEditModal, showSuccess]);
 
+  /** Exporta a lista para CSV, PDF, JSON ou iCal */
+  const handleExport = useCallback(() => {
+    if (!list) return;
+    if (exportFormat === 'csv') {
+      downloadCSV(list, items, exportScope);
+      showSuccess('Lista exportada como CSV');
+    } else if (exportFormat === 'pdf') {
+      printPDF(list, items, exportScope);
+      showSuccess('Lista exportada como PDF');
+    } else if (exportFormat === 'json') {
+      downloadJSON(list, items, exportScope);
+      showSuccess('Lista exportada como JSON');
+    } else if (exportFormat === 'ics') {
+      downloadICS(list, items, exportScope);
+      showSuccess('Lista exportada como iCal');
+    }
+    setIsExportModalOpen(false);
+  }, [list, items, exportFormat, exportScope, showSuccess]);
+
   /** Salva preço para um item comprado */
   const handleSavePrice = async (itemId: string) => {
     const priceStr = priceInputs[itemId];
     if (!priceStr) return;
 
-    const priceValue = parseFloat(priceStr.replace(',', '.'));
-    if (isNaN(priceValue) || priceValue < 0 || priceValue > 999999.99) {
-      setError('Preço inválido');
+    const priceValue = parsePrice(priceStr);
+    if (priceValue === null) {
+      setError('Preço inválido. Use valores de 0 a 999.999,99');
       return;
     }
 
@@ -679,7 +984,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   /** Atualiza valor do input de preço */
   const handlePriceChange = (itemId: string, value: string) => {
-    const sanitized = value.replace(/[^0-9.,]/g, '');
+    const sanitized = sanitizePriceInput(value);
     setPriceInputs((prev) => ({ ...prev, [itemId]: sanitized }));
     if (error) setError('');
   };
@@ -698,6 +1003,50 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Item comprado sem preço não soma, mas não quebra o cálculo.
   const totalSpent = sumCompletedSpent(items);
   const budget = Number(list?.budget ?? 0);
+
+
+  /** Abre o sheet de calendário e carrega dados da lista */
+  const openCalendarSheet = async () => {
+    setIsCalendarSheetOpen(true);
+    setLoadingCalendar(true);
+    try {
+      const response = await fetch(`/api/lists/${id}/calendar`);
+      if (response.ok) {
+        const data = await response.json();
+        setCalendarData({ googleUrl: data.googleUrl, ics: data.ics, title: data.title });
+      }
+    } catch {
+      setError('Erro ao carregar calendário');
+    } finally {
+      setLoadingCalendar(false);
+    }
+  };
+
+  /** Fecha o sheet de calendário */
+  const closeCalendarSheet = () => {
+    setIsCalendarSheetOpen(false);
+  };
+
+  /** Faz download do arquivo ICS */
+  const downloadICS = () => {
+    if (!calendarData?.ics) return;
+    const blob = new Blob([calendarData.ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `listtobuy-${list?.name || 'lista'}-${new Date().toISOString().split('T')[0]}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showSuccess('Arquivo ICS baixado!');
+  };
+
+  /** Abre Google Calendar em nova aba */
+  const openGoogleCalendar = () => {
+    if (!calendarData?.googleUrl) return;
+    window.open(calendarData.googleUrl, '_blank', 'noopener,noreferrer');
+  };
 
   /** Renderiza cada linha de item da lista (reutilizado nas seções de pendentes e comprados).
    *  Layout compacto estilo Listonic (D6/D7/D5): círculo 44px para marcar comprado, nome truncado,
@@ -807,6 +1156,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     ? `Marcar ${item.name} como pendente`
                     : `Marcar ${item.name} como comprado`
                 }
+                title={isCompleted ? `Marcar ${item.name} como pendente` : `Marcar ${item.name} como comprado`}
                 aria-pressed={isCompleted}
               >
                 {isCompleted && (
@@ -840,7 +1190,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
 
                 {/* Sub-linha de preço — sempre visível */}
-                <div className="flex items-center gap-2 mt-0.5 min-h-11">
+                <div className="flex items-center gap-2 mt-0.5 min-h-11 flex-wrap">
                   {item.price != null ? (
                     <>
                       <span
@@ -849,6 +1199,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       >
                         {formatCurrency(Number(item.price))}
                       </span>
+                      {priceVariations[item.id] !== undefined && (
+                        <span
+                          className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${
+                            priceVariations[item.id]! > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                          }`}
+                          aria-label={`Variação de ${priceVariations[item.id]! > 0 ? 'alta' : 'baixa'} de ${Math.abs(priceVariations[item.id]!).toFixed(1)}%`}
+                        >
+                          {priceVariations[item.id]! > 0 ? '↑' : '↓'} {Math.abs(priceVariations[item.id]!).toFixed(1)}%
+                        </span>
+                      )}
                       <button
                         ref={(el) => {
                           historyToggleRefs.current[item.id] = el;
@@ -861,6 +1221,45 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                         aria-label={isHistoryOpen ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
                       >
                         {isHistoryOpen ? 'Ocultar' : 'Histórico'}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setTogglingAlert((prev) => ({ ...prev, [item.id]: true }));
+                          try {
+                            const method = priceAlerts[item.id] ? 'DELETE' : 'POST';
+                            const url = method === 'DELETE'
+                              ? `/api/price-alerts?item_id=${item.id}`
+                              : '/api/price-alerts';
+                            const response = await fetch(url, {
+                              method,
+                              headers: method === 'POST' ? { 'Content-Type': 'application/json' } : {},
+                              body: method === 'POST' ? JSON.stringify({ item_id: item.id }) : undefined,
+                            });
+                            const data = await response.json();
+                            if (!response.ok) {
+                              setError(data.error || 'Erro ao atualizar alerta');
+                              return;
+                            }
+                            setPriceAlerts((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
+                            showSuccess(priceAlerts[item.id] ? 'Alerta desativado' : 'Alerta ativado');
+                          } catch {
+                            setError('Erro de conexão');
+                          } finally {
+                            setTogglingAlert((prev) => ({ ...prev, [item.id]: false }));
+                          }
+                        }}
+                        disabled={togglingAlert[item.id]}
+                        className={`min-h-11 -my-1.5 px-1.5 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                          priceAlerts[item.id]
+                            ? 'text-amber-600 hover:bg-amber-50'
+                            : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'
+                        }`}
+                        aria-label={priceAlerts[item.id] ? `Desativar alerta de preço de ${item.name}` : `Ativar alerta de preço de ${item.name}`}
+                        title={priceAlerts[item.id] ? 'Alerta ativo' : 'Ativar alerta de preço'}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
                       </button>
                     </>
                   ) : (
@@ -904,32 +1303,91 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     </div>
                   )}
                 </div>
+
+                {/* Indicador de lembrete */}
+                {item.reminder_date && editingReminderId !== item.id && (
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-xs text-blue-600 font-medium flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      {new Date(item.reminder_date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Ações secundárias — discretas, alvo 44px */}
               <div className="flex items-center gap-0.5 shrink-0">
-                <button
-                  onClick={() => startEdit(item, 'name')}
-                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
-                             transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label={`Editar ${item.name}`}
-                  title={`Editar ${item.name}`}
-                >
-                  <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleDeleteItem(item)}
-                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
-                             transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label={`Remover ${item.name}`}
-                  title={`Remover ${item.name}`}
-                >
-                  <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                {editingReminderId === item.id ? (
+                  <>
+                    <input
+                      type="datetime-local"
+                      value={editReminderDate}
+                      onChange={(e) => setEditReminderDate(e.target.value)}
+                      className="w-40 px-2 py-1.5 text-xs border border-[var(--app-border)] rounded-lg bg-[var(--app-surface)] text-[var(--app-text)] focus:ring-2 focus:ring-blue-500"
+                      aria-label="Data do lembrete"
+                    />
+                    <button
+                      onClick={() => handleSaveReminder(item.id)}
+                      disabled={savingReminder[item.id]}
+                      className="w-11 h-11 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                      aria-label="Salvar lembrete"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={cancelEditReminder}
+                      className="w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                      aria-label="Cancelar lembrete"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => startEdit(item, 'name')}
+                      className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
+                                 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
+                      aria-label={`Editar ${item.name}`}
+                      title={`Editar ${item.name}`}
+                    >
+                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => startEditReminder(item)}
+                      className={`w-11 h-11 flex items-center justify-center rounded-lg transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500 ${
+                        item.reminder_date
+                          ? 'text-blue-600 hover:bg-blue-50'
+                          : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'
+                      }`}
+                      aria-label={item.reminder_date ? `Editar lembrete de ${item.name}` : `Adicionar lembrete a ${item.name}`}
+                      title={item.reminder_date ? `Lembrete: ${new Date(item.reminder_date).toLocaleString('pt-BR')}` : 'Adicionar lembrete'}
+                    >
+                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(item)}
+                      className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
+                                 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
+                      aria-label={`Remover ${item.name}`}
+                      title={`Remover ${item.name}`}
+                    >
+                      <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -1007,6 +1465,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="sm:hidden w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Abrir menu"
+                title="Abrir menu"
                 aria-expanded={isMobileMenuOpen}
                 aria-controls="mobile-menu"
               >
@@ -1023,10 +1482,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </Link>
             </div>
             <div className="flex-1 min-w-0 text-center">
-              <h1 className="text-lg font-bold text-[var(--app-text)] truncate">
-                {list.name}
-                <span className="hidden sm:inline text-sm font-normal text-[var(--app-text-secondary)]"> · {formatMonthShort(list.month)}</span>
-              </h1>
+              <div className="flex-1 min-w-0 text-center">
+                <h1 className="text-lg font-bold text-[var(--app-text)] truncate flex items-center justify-center gap-2">
+                  {list.name}
+                  <span className="hidden sm:inline text-sm font-normal text-[var(--app-text-secondary)]"> · {formatMonthShort(list.month)}</span>
+                </h1>
+                <div className="flex items-center justify-center mt-1">
+                  <CategoryChip categoryId={list.category} />
+                </div>
+              </div>
               <p className="hidden sm:block text-xs text-[var(--app-text-secondary)]" aria-live="polite">
                 {miniStatus}
               </p>
@@ -1038,6 +1502,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 aria-expanded={!isSummaryCollapsed}
                 aria-controls="list-summary"
                 aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
+                title={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
               >
                 <svg
                   aria-hidden="true"
@@ -1051,6 +1516,26 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </svg>
               </button>
               <button
+                onClick={openCalendarSheet}
+                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Adicionar ao calendário"
+                title="Adicionar ao calendário"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Compartilhar lista"
+                title="Compartilhar lista"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.5 9 12c0-.828-.448-1.5-1-1.5s-1 .672-1 1.5c0 .5.114.938.316 1.342m0 0a3 3 0 11-5.684-2.658 3 3 0 015.684 2.658zm9 0a3 3 0 11-5.684-2.658 3 3 0 015.684 2.658z" />
+                </svg>
+              </button>
+              <button
                 onClick={openEditModal}
                 className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Editar lista"
@@ -1059,6 +1544,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setIsExportModalOpen(true)}
+                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Exportar lista"
+                title="Exportar lista"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
               </button>
               <button
@@ -1145,6 +1640,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* Conteúdo principal scrollável */}
       <main className="flex-1 overflow-y-auto mx-auto max-w-2xl px-4 py-6 pb-40 sm:pb-28" role="main">
+        <PresenceIndicator users={onlineUsers} />
         {/* Mensagens de estado */}
         {error && (
           <div
@@ -1270,6 +1766,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </main>
 
+      <ActivityLog listId={id} />
       {/* Barra de base única (delta 13/08 — estilo Listonic): quick-add com
           ItemSuggestions + chip de orçamento (abre o sheet para cima).
           Substitui o footer-accordion de orçamento, o FAB e o form inline
@@ -1304,6 +1801,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 disabled={addingItem}
                 className="w-11 h-11 shrink-0 rounded-xl bg-blue-600 text-white text-2xl font-light flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                 aria-label={addingItem ? 'Adicionando item...' : 'Adicionar item'}
+                title={addingItem ? 'Adicionando item...' : 'Adicionar item'}
               >
                 +
               </button>
@@ -1376,6 +1874,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 onClick={closeBudgetSheet}
                 className="w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Fechar orçamento"
+                title="Fechar orçamento"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1389,7 +1888,129 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* Modal de edição unificada da lista */}
+      {/* Modal de exportação */}
+      {isExportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setIsExportModalOpen(false)}>
+          <div
+            className="bg-[var(--app-surface)] rounded-xl shadow-xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-list-title"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="export-list-title" className="text-lg font-bold text-[var(--app-text)]">Exportar Lista</h2>
+              <button
+                onClick={() => setIsExportModalOpen(false)}
+                className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar exportação"
+                title="Fechar"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">Formato</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('csv')}
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportFormat === 'csv'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('pdf')}
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportFormat === 'pdf'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('json')}
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportFormat === 'json'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat('ics')}
+                    className={`py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportFormat === 'ics'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    iCal
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">Itens</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportScope('all')}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportScope === 'all'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportScope('pending')}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      exportScope === 'pending'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-[var(--app-border)] text-[var(--app-text)] hover:bg-[var(--app-muted)]'
+                    }`}
+                  >
+                    Apenas pendentes
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExport}
+                className="w-full py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors"
+              >
+                Exportar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* Modal de compartilhamento */}
+      <ShareModal
+        open={isShareModalOpen}
+        onOpenChange={setIsShareModalOpen}
+        listId={id}
+        listName={list?.name || ''}
+      />
+{/* Modal de edição unificada da lista */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeEditModal}>
           <div
@@ -1437,6 +2058,22 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   onChange={(e) => setEditListMonth(e.target.value)}
                   className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+              <div>
+                <label htmlFor="edit-list-category" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Categoria</label>
+                <select
+                  id="edit-list-category"
+                  value={editListCategory}
+                  onChange={(e) => setEditListCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500 bg-[var(--app-surface)]"
+                >
+                  <option value="">Sem categoria</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label htmlFor="edit-list-budget" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Orçamento (R$)</label>
@@ -1494,6 +2131,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors"
                 aria-label="Fechar menu"
+                title="Fechar menu"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1508,6 +2146,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <span>✏️</span> Editar lista
               </button>
               <button
+                onClick={() => { setIsMobileMenuOpen(false); setIsExportModalOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
+              >
+                <span>📥</span> Exportar lista
+              </button>
+              <button
                 onClick={() => { setIsMobileMenuOpen(false); handleDeleteList(); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-red-700 hover:bg-red-50 transition-colors"
               >
@@ -1519,6 +2163,70 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               >
                 <span>🐛</span> Reportar bug
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Sheet de Calendário — bottom-sheet para adicionar ao calendário */}
+      {isCalendarSheetOpen && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="calendar-sheet-title">
+          {/* Backdrop — fecha no toque */}
+          <div className="absolute inset-0 bg-black/50" onClick={closeCalendarSheet} aria-hidden="true" />
+          <div
+            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-[var(--app-surface)] rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
+          >
+            <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 shrink-0">
+              <h2 id="calendar-sheet-title" className="text-lg font-semibold text-[var(--app-text)]">
+                Adicionar ao Calendário
+              </h2>
+              <button
+                onClick={closeCalendarSheet}
+                className="w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar calendário"
+                title="Fechar calendário"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 sm:p-6 pt-0 space-y-4">
+              <p className="text-sm text-[var(--app-text-secondary)]">
+                Exporte esta lista de compras para o seu calendário e receba lembretes.
+              </p>
+              {loadingCalendar ? (
+                <div className="text-center py-8 text-[var(--app-text-secondary)]">
+                  Carregando...
+                </div>
+              ) : calendarData ? (
+                <div className="space-y-3">
+                  <button
+                    onClick={openGoogleCalendar}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Abrir no Google Calendar
+                  </button>
+                  <button
+                    onClick={downloadICS}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-[var(--app-border)] text-[var(--app-text)] rounded-xl hover:bg-[var(--app-muted)] transition-colors font-medium"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Baixar arquivo .ics
+                  </button>
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <p className="text-xs text-blue-800">
+                      <strong>Dica:</strong> Defina lembretes nos itens para receber notificações no app no dia da compra.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

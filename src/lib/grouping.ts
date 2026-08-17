@@ -1,4 +1,5 @@
 import { CATEGORIES, guessCategoryByName } from '@/lib/categories';
+import { formatMonth } from '@/lib/month';
 
 /**
  * Lógica de agrupamento de itens por categoria/seção do mercado (issue #41).
@@ -61,4 +62,57 @@ export function groupItemsByCategory<T extends CategorizableItem>(
   }
 
   return groups.filter((g) => g.items.length > 0);
+}
+
+/** Mínimo que uma lista precisa expor para ser agrupada por mês (issue #104). */
+export interface MonthCategorizable {
+  month: string;
+  budget?: string | number | null;
+}
+
+/** Grupo de listas de um mesmo mês. */
+export interface MonthGroup<T> {
+  month: string;
+  label: string;
+  lists: T[];
+  count: number;
+  totalBudget: number;
+}
+
+/**
+ * Agrupa listas por mês/ano (campo `month` no formato YYYY-MM).
+ *
+ * Regras:
+ * - Listas são agrupadas pelo valor do campo `month`;
+ * - Os grupos são ordenados do mês mais recente para o mais antigo;
+ * - Grupos vazios são omitidos;
+ * - `label` é o nome localizado do mês (ex.: "agosto de 2024").
+ */
+export function groupListsByMonth<T extends MonthCategorizable>(
+  lists: T[]
+): MonthGroup<T>[] {
+  if (lists.length === 0) return [];
+
+  const groups = new Map<string, T[]>();
+
+  for (const list of lists) {
+    const key = list.month || '';
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key)!.push(list);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([month, lists]) => ({
+      month,
+      label: formatMonth(month),
+      lists,
+      count: lists.length,
+      totalBudget: lists.reduce(
+        (sum, list) => sum + (Number(list.budget) || 0),
+        0
+      ),
+    }));
 }

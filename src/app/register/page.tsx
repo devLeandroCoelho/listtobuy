@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Footer } from '@/components/Footer';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -20,7 +21,6 @@ export default function RegisterPage() {
     setLoading(true);
     setError('');
 
-    // 1. Criar usuário no Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -35,7 +35,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // 2. Criar perfil na tabela users (quando o signup retorna sessão)
     if (authData.user && authData.session) {
       const { error: profileError } = await supabase.from('users').insert({
         id: authData.user.id,
@@ -51,7 +50,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // 3. Confirmação de email habilitada no Supabase
     if (authData.user) {
       setNeedsEmailConfirmation(true);
     }
@@ -59,12 +57,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--app-bg)]">
       <div className="w-full max-w-md p-8 bg-[var(--app-surface)] rounded-xl shadow-lg">
         <div className="text-center mb-8">
           <span className="text-4xl">🛒</span>
-          <h1 className="text-2xl font-bold mt-2">Criar Conta</h1>
-          <p className="text-gray-600">Comece a economizar agora</p>
+          <h1 className="text-2xl font-bold mt-2 text-[var(--app-text)]">Criar Conta</h1>
+          <p className="text-[var(--app-text-secondary)]">Comece a economizar agora</p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">
@@ -127,7 +125,7 @@ export default function RegisterPage() {
               aria-required="true"
               aria-describedby="password-hint"
             />
-            <p id="password-hint" className="text-xs text-gray-500 mt-1">
+            <p id="password-hint" className="text-xs text-[var(--app-text-secondary)] mt-1">
               Mínimo de 6 caracteres
             </p>
           </div>
@@ -135,19 +133,20 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading || needsEmailConfirmation}
-            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="w-full py-3 bg-[var(--app-accent)] text-white rounded-lg hover:opacity-90 disabled:opacity-50"
           >
             {loading ? 'Criando...' : 'Criar Conta Grátis'}
           </button>
         </form>
 
-        <p className="text-center mt-6 text-gray-600">
+        <p className="text-center mt-6 text-[var(--app-text-secondary)]">
           Já tem conta?{' '}
-          <Link href="/login" className="text-blue-600 hover:underline">
+          <Link href="/login" className="text-[var(--app-accent)] hover:underline">
             Entrar
           </Link>
         </p>
       </div>
+      <Footer />
     </div>
   );
 }

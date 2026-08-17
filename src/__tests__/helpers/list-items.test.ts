@@ -54,6 +54,8 @@ describe('serializeItem', () => {
       name: 'Arroz',
       completed: '0',
       price: null,
+      reminderDate: null,
+      reminderNotified: '0',
     });
     expect(typeof serializeItem(item('i1', 'Arroz', 0)).completed).toBe('string');
   });
@@ -101,23 +103,23 @@ describe('normalizePrice (contrato number | null, issue #56)', () => {
 
 describe('serializeItem — contrato de price na fronteira (issue #56)', () => {
   it('price string "5.50" → sai como number 5.5 na resposta', () => {
-    const serialized = serializeItem({ id: 'i1', name: 'Arroz', completed: 1, price: '5.50' });
+    const serialized = serializeItem({ id: 'i1', name: 'Arroz', completed: 1, price: '5.50', reminderDate: null, reminderNotified: '0' });
     expect(serialized.price).toBe(5.5);
     expect(typeof serialized.price).toBe('number');
   });
 
   it('item comprado SEM preço → price: null (não quebra a soma)', () => {
-    const serialized = serializeItem({ id: 'i2', name: 'Feijão', completed: 1 });
+    const serialized = serializeItem({ id: 'i2', name: 'Feijão', completed: 1, reminderDate: null, reminderNotified: '0' });
     expect(serialized.price).toBeNull();
   });
 
   it('REGRESSÃO #56: soma do orçamento funciona com itens serializados', () => {
     // Caminho real: GET /api/lists/[id] → serializeItems + price merge (number)
     const items = serializeItems([
-      { id: 'i1', name: 'Arroz', completed: 1, price: '5.50' }, // comprado, preço string do PostgREST
-      { id: 'i2', name: 'Feijão', completed: 1, price: 3.25 }, // comprado, preço number
-      { id: 'i3', name: 'Sal', completed: 0, price: '1.00' }, // pendente, não conta
-      { id: 'i4', name: 'Açúcar', completed: 1 }, // comprado SEM preço → null
+      { id: 'i1', name: 'Arroz', completed: 1, price: '5.50', reminderDate: null, reminderNotified: '0' }, // comprado, preço string do PostgREST
+      { id: 'i2', name: 'Feijão', completed: 1, price: 3.25, reminderDate: null, reminderNotified: '0' }, // comprado, preço number
+      { id: 'i3', name: 'Sal', completed: 0, price: '1.00', reminderDate: null, reminderNotified: '0' }, // pendente, não conta
+      { id: 'i4', name: 'Açúcar', completed: 1, reminderDate: null, reminderNotified: '0' }, // comprado SEM preço → null
     ]);
 
     // Mesma fórmula do frontend (src/app/dashboard/lists/[id]/page.tsx:617-619)
@@ -157,6 +159,8 @@ describe('serializeItems', () => {
   it('normaliza todos os itens da lista', () => {
     const result = serializeItems([item('i1', 'Arroz', 0), item('i2', 'Feijão', 1)]);
     expect(result.map((i) => i.completed)).toEqual(['0', '1']);
+    expect(result.map((i) => i.reminderNotified)).toEqual(['0', '0']);
+    expect(result.map((i) => i.reminderDate)).toEqual([null, null]);
   });
 });
 

@@ -76,3 +76,22 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============================================
+   ListToBuy — Animações (issue #104 modos de visualização)
+   ============================================ */
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.25s ease-out;
+}

@@ -1,21 +1,26 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializeItem } from '@/lib/list-items';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { requireEditor } from '@/lib/shares';
 
 /**
  * POST /api/lists/[id]/items — Adiciona um item a uma lista.
  *
- * Body: { name: string, quantity?: number, unit?: string, category?: string | null }
+ * Body: { name: string, quantity?: number, unit?: string, category?: string | null, reminderDate?: string | null }
  *   - category: opcional. Id da categoria/seção (ex.: 'hortifruti') ou null p/ não categorizado.
+ *   - reminderDate: opcional. Data/hora ISO do lembrete ou null.
  * Retorna: { item } (201) | { error }
  */
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, { params }: Params) {
+  const rateLimited = checkRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   const supabase = await createClient();
 
-  // Verifica autenticação
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -25,7 +30,11 @@ export async function POST(request: Request, { params }: Params) {
 
   const { id } = await params;
 
-  // Verifica se a lista existe e pertence ao usuário (RLS: auth.uid() = user_id)
+  const canEdit = await requireEditor(id, user.id);
+  if (!canEdit) {
+    return NextResponse.json({ error: 'Sem permissão para editar' }, { status: 403 });
+  }
+
   const { data: list } = await supabase
     .from('lists')
     .select('id')
@@ -39,7 +48,6 @@ export async function POST(request: Request, { params }: Params) {
   const body = await request.json();
   const { name, quantity, unit } = body;
 
-  // Validação dos campos obrigatórios
   if (!name || typeof name !== 'string' || !name.trim()) {
     return NextResponse.json(
       { error: 'Dados obrigatórios: name' },
@@ -47,7 +55,6 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  // Valida quantidade numérica positiva (opcional, default 1)
   const quantityValue = quantity === undefined || quantity === null ? 1 : Number(quantity);
   if (isNaN(quantityValue) || quantityValue <= 0) {
     return NextResponse.json(
@@ -58,8 +65,6 @@ export async function POST(request: Request, { params }: Params) {
 
   const unitValue = unit && typeof unit === 'string' && unit.trim() ? unit.trim() : 'un';
 
-  // Categoria opcional: string não-vazia ou null (não categorizado).
-  // undefined → campo omitido do INSERT (coluna NULL no banco).
   let categoryValue: string | null | undefined;
   if (body.category !== undefined) {
     if (body.category === null) {
@@ -74,7 +79,27 @@ export async function POST(request: Request, { params }: Params) {
     }
   }
 
-  // Insere item (RLS: auth.uid() = dono da lista do item)
+  let reminderDateValue: string | null | undefined;
+  if (body.reminderDate !== undefined) {
+    if (body.reminderDate === null) {
+      reminderDateValue = null;
+    } else if (typeof body.reminderDate === 'string' && body.reminderDate.trim()) {
+      const d = new Date(body.reminderDate.trim());
+      if (isNaN(d.getTime())) {
+        return NextResponse.json(
+          { error: 'Data do lembrete inválida. Use formato ISO (ex: 2026-08-20T10:00:00)' },
+          { status: 400 }
+        );
+      }
+      reminderDateValue = d.toISOString();
+    } else {
+      return NextResponse.json(
+        { error: 'reminderDate deve ser uma string ISO válida ou null' },
+        { status: 400 }
+      );
+    }
+  }
+
   const payload: Record<string, unknown> = {
     list_id: id,
     name: name.trim(),
@@ -83,6 +108,9 @@ export async function POST(request: Request, { params }: Params) {
   };
   if (categoryValue !== undefined) {
     payload.category = categoryValue;
+  }
+  if (reminderDateValue !== undefined) {
+    payload.reminder_date = reminderDateValue;
   }
 
   const { data, error } = await supabase
@@ -95,6 +123,13 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Normaliza `completed` para string ('0'/'1') — banco devolve number (issues #51/#52)
+  await supabase.from('list_activity').insert({
+    list_id: id,
+    user_id: user.id,
+    action: 'create',
+    item_id: data.id,
+    details: { name: data.name },
+  });
+
   return NextResponse.json({ item: serializeItem(data) }, { status: 201 });
 }

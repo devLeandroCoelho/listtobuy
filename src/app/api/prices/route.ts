@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializePriceRow, serializePriceRows } from '@/lib/list-items';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 /**
  * POST /api/prices — Registra preço de um item.
@@ -11,6 +12,9 @@ import { serializePriceRow, serializePriceRows } from '@/lib/list-items';
  */
 
 export async function POST(request: Request) {
+  const rateLimited = checkRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   const supabase = await createClient();
 
   // Verifica autenticação
@@ -41,11 +45,11 @@ export async function POST(request: Request) {
     );
   }
 
-  // Valida valor numérico positivo
+  // Valida valor numérico positivo e faixa
   const priceValue = Number(value);
-  if (isNaN(priceValue) || priceValue < 0) {
+  if (isNaN(priceValue) || priceValue < 0 || priceValue > 999999.99) {
     return NextResponse.json(
-      { error: 'Preço deve ser um número positivo' },
+      { error: 'Preço inválido. Use valores de 0 a 999.999,99' },
       { status: 400 }
     );
   }
@@ -79,6 +83,18 @@ export async function POST(request: Request) {
     );
   }
 
+  // Busca preço anterior para notificação de variação
+  const { data: previousPrices } = await supabase
+    .from('prices')
+    .select('value')
+    .eq('item_id', item_id)
+    .neq('month', month)
+    .order('month', { ascending: false })
+    .limit(1);
+
+  const previousPrice = previousPrices?.[0]?.value ?? null;
+  const previousPriceNum = previousPrice !== null ? Number(previousPrice) : null;
+
   // Insere preço (upsert: atualiza se já existir preço para o mesmo item/mês)
   const { data, error } = await supabase
     .from('prices')
@@ -91,6 +107,36 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Verifica alertas de preço e envia notificação se houver variação significativa (>10%)
+  if (previousPriceNum !== null && previousPriceNum > 0) {
+    const variation = ((priceValue - previousPriceNum) / previousPriceNum) * 100;
+    if (Math.abs(variation) > 10) {
+      const { data: alerts } = await supabase
+        .from('price_alerts')
+        .select('enabled')
+        .eq('user_id', user.id)
+        .eq('item_id', item_id)
+        .eq('enabled', true)
+        .maybeSingle();
+
+      if (alerts && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        const direction = variation > 0 ? 'aumentou' : 'diminuiu';
+        const emoji = variation > 0 ? '📈' : '📉';
+        try {
+          new Notification(`${emoji} ListToBuy — Preço ${direction}`, {
+            body: `O item registrado mudou de ${previousPriceNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} para ${priceValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${Math.abs(variation).toFixed(1)}%)`,
+            icon: '/favicon.svg',
+            badge: '/favicon.svg',
+            tag: `price-alert-${item_id}-${Date.now()}`,
+            requireInteraction: false,
+          });
+        } catch {
+          // Silently fail - notifications are not critical
+        }
+      }
+    }
   }
 
   // Normaliza `value` para number/null na fronteira (issue #56)

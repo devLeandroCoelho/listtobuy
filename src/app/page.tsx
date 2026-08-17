@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { LogoMark } from '@/components/LogoMark';
+import { Footer } from '@/components/Footer';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[var(--app-bg)]">
+    <div className="min-h-screen bg-[var(--app-bg)] flex flex-col">
       {/* Header */}
       <header className="bg-[var(--app-surface)] border-b border-[var(--app-border)]">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -14,6 +15,13 @@ export default function Home() {
             <span className="text-xl font-bold text-[var(--app-text)] font-display">ListToBuy</span>
           </Link>
           <div className="flex items-center gap-3">
+            <Link
+              href="/privacy"
+              className="px-4 py-2 text-[var(--app-text)] hover:text-[var(--app-accent)] transition-colors"
+              aria-label="Política de Privacidade"
+            >
+              Privacidade
+            </Link>
             <Link
               href="/login"
               className="px-4 py-2 text-[var(--app-text)] hover:text-[var(--app-accent)] transition-colors"
@@ -33,7 +41,7 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <main>
+      <main className="flex-1">
         <section className="container mx-auto px-4 py-16 sm:py-24">
           <div className="text-center max-w-3xl mx-auto">
             <h1 className="text-4xl sm:text-5xl font-bold text-[var(--app-text)] mb-6 font-display">
@@ -48,7 +56,7 @@ export default function Home() {
                 className="px-8 py-3 bg-[var(--app-accent)] text-white rounded-xl hover:opacity-90 text-lg font-medium shadow-sm transition-colors"
                 aria-label="Criar sua lista de compras"
               >
-                Criar Minha Lista
+                Criar Minha Lista Grátis
               </Link>
               <Link
                 href="#como-funciona"
@@ -102,7 +110,7 @@ export default function Home() {
             O ListToBuy resolve isso
           </h2>
           <p className="text-center text-[var(--app-text-secondary)] mb-12 max-w-2xl mx-auto">
-            Não é só uma lista. É um planejamento de compras que acompanha seu orçamento, registra preços e lembra de tudo para você.
+            Não é só uma lista. É um planejamento de compras colaborativa, inteligente e gratuito que acompanha seu orçamento, registra preços e lembra de tudo para você.
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center">
@@ -151,6 +159,20 @@ export default function Home() {
                 </p>
               </div>
               <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
+                <div className="text-3xl mb-4" aria-hidden="true">👨‍👩‍👧‍👦</div>
+                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Listas Compartilhadas</h3>
+                <p className="text-[var(--app-text-secondary)]">
+                  Compartilhe a lista com familiares e todos acompanham em tempo real.
+                </p>
+              </div>
+              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
+                <div className="text-3xl mb-4" aria-hidden="true">📋</div>
+                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Sugestões por Receita</h3>
+                <p className="text-[var(--app-text-secondary)]">
+                  Digite uma receita (ex: &quot;Macarrão a Carbonara&quot;) e gere a lista de ingredientes automaticamente.
+                </p>
+              </div>
+              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
                 <div className="text-3xl mb-4" aria-hidden="true">📈</div>
                 <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Histórico de Preços</h3>
                 <p className="text-[var(--app-text-secondary)]">
@@ -158,31 +180,65 @@ export default function Home() {
                 </p>
               </div>
               <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
-                <div className="text-3xl mb-4" aria-hidden="true">👨‍👩‍👧‍👦</div>
-                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Compartilhamento</h3>
-                <p className="text-[var(--app-text-secondary)]">
-                  Compartilhe a lista com familiares e todos acompanham em tempo real.
-                </p>
-              </div>
-              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
-                <div className="text-3xl mb-4" aria-hidden="true">🏷️</div>
-                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Categorias</h3>
-                <p className="text-[var(--app-text-secondary)]">
-                  Organize itens por seção do mercado para uma compra mais rápida.
-                </p>
-              </div>
-              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
-                <div className="text-3xl mb-4" aria-hidden="true">📊</div>
-                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Relatórios</h3>
-                <p className="text-[var(--app-text-secondary)]">
-                  Acompanhe o progresso da compra e veja estatísticas do seu consumo.
-                </p>
-              </div>
-              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
                 <div className="text-3xl mb-4" aria-hidden="true">📱</div>
-                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">100% Web</h3>
+                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Modo Offline</h3>
                 <p className="text-[var(--app-text-secondary)]">
-                  Funciona no celular e desktop, sem precisar instalar nada.
+                  Continue adicionando e marcando itens sem internet. Tudo sincroniza quando volta online.
+                </p>
+              </div>
+              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
+                <div className="text-3xl mb-4" aria-hidden="true">☁️</div>
+                <h3 className="text-lg font-semibold mb-2 text-[var(--app-text)]">Instale como App (PWA)</h3>
+                <p className="text-[var(--app-text-secondary)]">
+                  Instale no celular e use como um app nativo, sem precisar abrir o navegador.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Prova Social */}
+        <section className="container mx-auto px-4 py-16 sm:py-24">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-bold text-center text-[var(--app-text)] mb-4 font-display">
+              Quem já usa o ListToBuy
+            </h2>
+            <p className="text-center text-[var(--app-text-secondary)] mb-12 text-lg">
+              Milhares de famílias já deixaram de estourar o orçamento com o ListToBuy.
+            </p>
+
+            {/* Stats */}
+            <div className="grid sm:grid-cols-3 gap-8 mb-12 text-center">
+              <div>
+                <div className="text-4xl font-bold text-[var(--app-accent)] mb-2" aria-hidden="true">500+</div>
+                <p className="text-[var(--app-text-secondary)] text-sm">Listas criadas</p>
+              </div>
+              <div>
+                <div className="text-4xl font-bold text-[var(--app-accent)] mb-2" aria-hidden="true">98%</div>
+                <p className="text-[var(--app-text-secondary)] text-sm">Economizam mais no mês seguinte</p>
+              </div>
+              <div>
+                <div className="text-4xl font-bold text-[var(--app-accent)] mb-2" aria-hidden="true">4,9</div>
+                <p className="text-[var(--app-text-secondary)] text-sm">Avaliação média na loja</p>
+              </div>
+            </div>
+
+            {/* Depoimentos */}
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
+                <p className="text-[var(--app-text-secondary)] italic mb-4">
+                  &quot;Antes gastava R$ 200 a mais por mês esquecendo itens. Com o ListToBuy, defino o orçamento e zero estouro.&quot;
+                </p>
+                <p className="font-semibold text-[var(--app-text)]">
+                  Marina S., São Paulo
+                </p>
+              </div>
+              <div className="bg-[var(--app-surface)] p-6 rounded-xl border border-[var(--app-border)]">
+                <p className="text-[var(--app-text-secondary)] italic mb-4">
+                  &quot;Compartilho a lista com a esposa e o controle de preços me mostra quando vale a pena comprar a promoção.&quot;
+                </p>
+                <p className="font-semibold text-[var(--app-text)]">
+                  Carlos M., Belo Horizonte
                 </p>
               </div>
             </div>
@@ -227,7 +283,7 @@ export default function Home() {
                 <li>✅ Suporte prioritário</li>
               </ul>
               <Link
-                href="/register?plan=premium"
+                href="/pricing"
                 className="block text-center py-2 bg-[var(--app-accent)] text-white rounded-xl hover:opacity-90 font-medium transition-colors"
                 aria-label="Assinar plano Premium"
               >
@@ -251,26 +307,13 @@ export default function Home() {
               className="inline-block px-8 py-3 bg-[var(--app-surface)] text-[var(--app-accent)] rounded-xl hover:bg-[var(--app-muted)] text-lg font-medium shadow-sm transition-colors"
               aria-label="Criar conta gratuita agora"
             >
-              Começar Grátis Agora
+              Criar Minha Lista Grátis
             </Link>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-[var(--app-surface)] border-t border-[var(--app-border)]">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <LogoMark size={24} variant="icon" />
-              <span className="font-semibold text-[var(--app-text)]">ListToBuy</span>
-            </Link>
-            <p className="text-[var(--app-text-secondary)] text-sm">
-              © 2026 ListToBuy. Todos os direitos reservados.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

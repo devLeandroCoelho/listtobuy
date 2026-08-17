@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ItemSuggestions } from '@/components/ItemSuggestions';
 import { CATEGORIES, guessCategoryByName } from '@/lib/categories';
+import { sanitizePriceInput, parsePrice } from '@/lib/price';
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface AddItemModalProps {
     name: string;
     quantity: number;
     unit: string;
-    price?: string;
+    price?: number | string;
     category?: string;
   }) => Promise<void>;
   unitOptions: Array<{ value: string; label: string }>;
@@ -62,6 +63,14 @@ export function AddItemModal({
       return;
     }
 
+    if (price.trim()) {
+      const parsedPrice = parsePrice(price);
+      if (parsedPrice === null) {
+        setError('Preço inválido. Use valores de 0 a 999.999,99');
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       // Só envia category se o usuário tocou no seletor: sem interação a coluna
@@ -70,13 +79,13 @@ export function AddItemModal({
         name: string;
         quantity: number;
         unit: string;
-        price?: string;
+        price?: number | string;
         category?: string;
       } = {
         name: name.trim(),
         quantity: qty,
         unit,
-        price: price.trim() || undefined,
+        price: price.trim() ? parsePrice(price)! : undefined,
       };
       if (categoryTouched) {
         payload.category = category;
@@ -228,7 +237,7 @@ export function AddItemModal({
                 inputMode="decimal"
                 placeholder="0,00"
                 value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                onChange={(e) => setPrice(sanitizePriceInput(e.target.value))}
                 className="w-full pl-9 pr-3 py-2.5 border border-[var(--app-border)] rounded-lg text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>

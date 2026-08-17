@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 /**
  * POST /api/lists — Cria uma nova lista de compras.
@@ -9,6 +10,9 @@ import { createClient } from '@/lib/supabase/server';
  */
 
 export async function POST(request: Request) {
+  const rateLimited = checkRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   const supabase = await createClient();
 
   // Verifica autenticação

@@ -2,32 +2,13 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 
-/**
- * BudgetSummary — Exibe as 3 visões de valor da lista:
- * - Orçamento total (editável inline)
- * - Total gasto (itens comprados com preço)
- * - Quanto falta gastar ("Ainda tem para gastar") ou estouro ("Estourou em")
- *
- * Acessibilidade: WCAG 2.1 AA — aria-labels, contraste adequado,
- * navegação por teclado, sem animações piscantes. O card de status usa
- * aria-live="polite" para anunciar mudanças em tempo real.
- */
-
 interface BudgetSummaryProps {
-  /** Orçamento total definido na lista */
   budget: number;
-  /** Total gasto (soma dos preços dos itens comprados) */
   totalSpent: number;
-  /** Quanto falta gastar (budget - totalSpent) */
   remaining: number;
-  /** Callback para salvar o novo orçamento (PATCH) */
   onSaveBudget?: (budget: number) => Promise<void>;
 }
 
-/**
- * Formata valor numérico para moeda brasileira (R$).
- * Exemplo: 123.45 → "R$ 123,45"
- */
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -107,7 +88,6 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
       role="region"
       aria-label="Resumo financeiro da lista"
     >
-      {/* Card: Orçamento Total */}
       <div
         className={`bg-[var(--app-surface)] p-6 rounded-xl shadow text-center ${isEditing ? 'ring-2 ring-blue-500' : ''}`}
         aria-label={`Orçamento total: ${budget === 0 ? 'não definido' : formatCurrency(budget)}`}
@@ -134,7 +114,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
-                className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="min-h-11 px-4 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Salvar orçamento"
               >
                 {saving ? 'Salvando...' : 'Salvar'}
@@ -143,7 +123,7 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
                 type="button"
                 onClick={cancelEditing}
                 disabled={saving}
-                className="px-3 py-1.5 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="min-h-11 px-4 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Cancelar edição do orçamento"
               >
                 Cancelar
@@ -162,10 +142,11 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
               <button
                 type="button"
                 onClick={startEditing}
-                className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                className="mt-2 min-h-11 inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                 aria-label={budget === 0 ? 'Definir orçamento' : 'Editar orçamento'}
+                title={budget === 0 ? 'Definir orçamento' : 'Editar orçamento'}
               >
-                <svg aria-hidden="true" focusable="false" className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg aria-hidden="true" focusable="false" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 {budget === 0 ? 'Definir' : 'Editar'}
@@ -175,7 +156,6 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
         )}
       </div>
 
-      {/* Card: Total Comprado */}
       <div
         className="bg-[var(--app-surface)] p-6 rounded-xl shadow text-center"
         aria-label={`Já comprado: ${formatCurrency(totalSpent)}, ${percentage.toFixed(1)}% do orçamento`}
@@ -184,7 +164,6 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
         <div className="text-2xl font-bold text-green-600">
           {formatCurrency(totalSpent)}
         </div>
-        {/* Barra de progresso */}
         <div
           className="mt-2 w-full bg-gray-200 rounded-full h-2"
           role="progressbar"
@@ -203,7 +182,6 @@ export function BudgetSummary({ budget, totalSpent, remaining, onSaveBudget }: B
         </div>
       </div>
 
-      {/* Card: Ainda Tem para Gastar / Estouro */}
       <div
         className={`bg-[var(--app-surface)] p-6 rounded-xl shadow text-center ${
           isOverBudget ? 'ring-2 ring-red-300' : ''

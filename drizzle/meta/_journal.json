@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1786864933944,
+      "tag": "0000_add_list_shares_permissions",
+      "breakpoints": true
+    }
+  ]
+}

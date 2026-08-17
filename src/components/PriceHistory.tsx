@@ -15,20 +15,6 @@ interface PriceHistoryProps {
   itemName: string;
 }
 
-/**
- * PriceHistory — Exibe o histórico de preços de um item mês a mês.
- *
- * Funcionalidades:
- * - Lista de preços ordenada por mês (mais recente primeiro)
- * - Variação percentual entre meses
- * - Formatação de moeda brasileira (R$)
- *
- * Acessibilidade (WCAG 2.1 AA):
- * - aria-label em todos os elementos interativos
- * - Contraste mínimo 4.5:1
- * - Fonte mínima 16px
- * - Sem animações piscantes
- */
 export function PriceHistory({ itemId, itemName }: PriceHistoryProps) {
   const [prices, setPrices] = useState<Price[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +26,7 @@ export function PriceHistory({ itemId, itemName }: PriceHistoryProps) {
         .from('prices')
         .select('*')
         .eq('item_id', itemId)
-        .order('month', { ascending: false });
+        .order('month', { ascending: true });
 
       setPrices(data || []);
       setLoading(false);
@@ -49,11 +35,9 @@ export function PriceHistory({ itemId, itemName }: PriceHistoryProps) {
     fetchPrices();
   }, [itemId, supabase]);
 
-  // Formatação de moeda brasileira
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-  // Formatação do mês (AAAA-MM → Mês AAAA)
   const formatMonth = (month: string) => {
     const [year, m] = month.split('-');
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -72,28 +56,51 @@ export function PriceHistory({ itemId, itemName }: PriceHistoryProps) {
     );
   }
 
-  // Calcular variação de preço
-  const getVariation = (current: number, previous: number) => {
-    if (previous === 0) return null;
-    const variation = ((current - previous) / previous) * 100;
-    return variation;
-  };
+  const values = prices.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const width = 280;
+  const height = 120;
+  const padding = 24;
+
+  const getX = (index: number) => padding + (index / (values.length - 1)) * (width - padding * 2);
+  const getY = (value: number) => height - padding - ((value - min) / range) * (height - padding * 2);
+
+  const pathD = values
+    .map((value, index) => `${index === 0 ? 'M' : 'L'} ${getX(index)} ${getY(value)}`)
+    .join(' ');
+
+  const areaD = `${pathD} L ${getX(values.length - 1)} ${height - padding} L ${getX(0)} ${height - padding} Z`;
 
   return (
     <div className="bg-[var(--app-surface)] rounded-xl shadow p-4">
       <h3 className="font-semibold mb-3" aria-label={`Histórico de preços de ${itemName}`}>
         📊 Histórico — {itemName}
       </h3>
+      <div className="mb-4">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto" aria-hidden="true">
+          <rect x={0} y={0} width={width} height={height} fill="transparent" />
+          <path d={areaD} fill="rgba(59,130,246,0.1)" stroke="none" />
+          <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {values.map((value, index) => (
+            <circle key={index} cx={getX(index)} cy={getY(value)} r="3" fill="#3b82f6" stroke="#fff" strokeWidth="2" />
+          ))}
+        </svg>
+        <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <span>{formatMonth(prices[0].month)}</span>
+          <span>{formatMonth(prices[prices.length - 1].month)}</span>
+        </div>
+      </div>
       <div className="space-y-2">
         {prices.map((price, index) => {
           const previousPrice = prices[index + 1];
-          const variation = previousPrice 
-            ? getVariation(price.value, previousPrice.value) 
-            : null;
+          const variation = previousPrice ? ((price.value - previousPrice.value) / previousPrice.value) * 100 : null;
 
           return (
-            <div 
-              key={price.id} 
+            <div
+              key={price.id}
               className="flex items-center justify-between py-2 border-b last:border-0"
               aria-label={`${formatMonth(price.month)}: ${formatCurrency(price.value)}${variation !== null ? `, variação de ${variation > 0 ? 'alta' : 'baixa'} de ${Math.abs(variation).toFixed(1)}%` : ''}`}
             >
@@ -101,7 +108,7 @@ export function PriceHistory({ itemId, itemName }: PriceHistoryProps) {
               <div className="flex items-center gap-2">
                 <span className="font-medium">{formatCurrency(price.value)}</span>
                 {variation !== null && (
-                  <span 
+                  <span
                     className={`text-xs ${variation > 0 ? 'text-red-500' : 'text-green-500'}`}
                     aria-hidden="true"
                   >

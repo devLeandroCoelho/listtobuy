@@ -1,19 +1,21 @@
--- Migration: Compartilhamento de listas
+-- Migration: Compartilhamento de listas com permissões
 -- Rodar no Supabase SQL Editor
 
 -- Tabela de compartilhamentos
 CREATE TABLE IF NOT EXISTS list_shares (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   list_id UUID REFERENCES lists(id) ON DELETE CASCADE NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  permission TEXT DEFAULT 'view' CHECK (permission IN ('view', 'edit')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(list_id, user_id)
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE,
+  permission TEXT DEFAULT 'viewer' NOT NULL CHECK (permission IN ('owner', 'editor', 'viewer')),
+  shared_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_list_shares_list_id ON list_shares(list_id);
 CREATE INDEX IF NOT EXISTS idx_list_shares_user_id ON list_shares(user_id);
+CREATE INDEX IF NOT EXISTS idx_list_shares_token ON list_shares(token);
 
 -- RLS
 ALTER TABLE list_shares ENABLE ROW LEVEL SECURITY;

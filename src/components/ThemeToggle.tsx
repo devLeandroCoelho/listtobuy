@@ -24,7 +24,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      className="w-9 h-9 flex items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
+      className="w-11 h-11 flex items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
       aria-label={theme === 'light' ? 'Ativar tema escuro' : 'Ativar tema claro'}
       title={theme === 'light' ? 'Tema escuro' : 'Tema claro'}
     >

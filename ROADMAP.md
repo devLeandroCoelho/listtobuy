@@ -1,6 +1,6 @@
 # ListToBuy — Roadmap
 
-> Atualizado em: 2026-08-11
+> Atualizado em: 2026-08-14
 
 ## 🎫 Issues ativas no GitHub
 | Issue | Título | Prioridade | Status |
@@ -45,10 +45,12 @@
 - [ ] Comparação entre supermercados — ⚠️ contraria D2
 - [ ] Controle de gastos por categoria — ⚠️ contraria D1
 - [ ] Notificações de preço (item subiu/desceu)
+- [ ] **Lista com IA** — ⏸️ Postergado para Fase 3+. Motivo: envolve custo variável com API de LLM. Levantamento de esforço: ~60–70h. Quando retomar: Premium-only + rate limit diário + log de uso + prompt fixo em pt-BR. Exemplo de uso: usuário digita "Macarrão a Carbonara", clica em "Gerar com IA", e o app sugere lista de ingredientes + receita.
 - [ ] App mobile nativo (hoje: PWA/responsivo)
+- [ ] **Lista com IA** — ao criar uma lista, o usuário pode digitar um nome de receita/prato (ex: "Macarrão a Carbonara") e selecionar "Gerar com IA". O app sugere automaticamente uma lista de ingredientes/itens para comprar e exibe a receita correspondente. A lista gerada pode ser editada antes de salvar.
 
 ## 💡 Ideias Futuras
-- [ ] Receitas sugeridas com base na lista
+- [ ] **Lista com IA** — ao criar uma lista, o usuário pode digitar uma receita/prato (ex: "Macarrão a Carbonara") e selecionar "Gerar com IA". O app sugere automaticamente uma lista de ingredientes/itens para comprar e exibe a receita correspondente. A lista gerada pode ser editada antes de salvar.
 - [ ] Exportação/relatórios do mês
 - [ ] Multi-idioma
 

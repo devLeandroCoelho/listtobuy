@@ -10,7 +10,8 @@ import { ItemSuggestions } from '@/components/ItemSuggestions';
 import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
 import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
 import { sumCompletedSpent } from '@/lib/budget';
-import { buildQuickAddPayload } from '@/lib/list-items';
+import { buildQuickAddPayload, normalizeCompleted } from '@/lib/list-items';
+import { BugReportButton } from '@/components/BugReportButton';
 
 /**
  * Página de detalhes da lista com gerenciamento de itens e orçamento.
@@ -123,15 +124,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   const [editFocusField, setEditFocusField] = useState<'name' | 'qty'>('name');
   const [savingEdit, setSavingEdit] = useState(false);
 
-  // Estado de edição do nome da lista
-  const [editingListName, setEditingListName] = useState(false);
-  const [listNameValue, setListNameValue] = useState('');
-  const [savingListName, setSavingListName] = useState(false);
-
-  // Estado de edição do mês da lista
-  const [editingListMonth, setEditingListMonth] = useState(false);
-  const [listMonthValue, setListMonthValue] = useState('');
-  const [savingListMonth, setSavingListMonth] = useState(false);
+  // Estado do modal de edição unificada
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editListName, setEditListName] = useState('');
+  const [editListMonth, setEditListMonth] = useState('');
+  const [editListBudget, setEditListBudget] = useState('');
+  const [editListSaving, setEditListSaving] = useState(false);
+  const [editListError, setEditListError] = useState('');
+  const editModalTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Estado de preço por item
   const [priceInputs, setPriceInputs] = useState<Record<string, string>>({});
@@ -149,6 +149,12 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Estado de recolhimento do resumo no header sticky (colapsado por padrão)
   const [isSummaryCollapsed, setIsSummaryCollapsed] = useState(true);
+
+  // Estado do menu mobile (drawer)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Estado do modal de bug controlado localmente
+  const [isBugModalOpen, setIsBugModalOpen] = useState(false);
 
   // Refs p/ foco e scroll do painel de histórico inline (D5)
   const historyToggleRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -185,7 +191,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       const rawItems: ItemData[] = data.list.items || [];
       const itemsWithPrices = await Promise.all(
         rawItems.map(async (item) => {
-          if (item.completed === '1') {
+          if (normalizeCompleted(item.completed) === '1') {
             try {
               const priceResponse = await fetch(`/api/prices?item_id=${item.id}`);
               if (priceResponse.ok) {
@@ -248,120 +254,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     [id, showSuccess]
   );
 
-  /** Inicia edição do nome da lista */
-  const startEditingListName = useCallback(() => {
-    if (!list) return;
-    setListNameValue(list.name);
-    setEditingListName(true);
-  }, [list]);
-
-  /** Salva novo nome da lista (PATCH /api/lists/[id]) */
-  const handleSaveListName = useCallback(async () => {
-    const trimmed = listNameValue.trim();
-    if (!trimmed) {
-      setError('Nome da lista não pode ser vazio');
-      return;
-    }
-
-    if (trimmed === list?.name) {
-      setEditingListName(false);
-      return;
-    }
-
-    setSavingListName(true);
-    setError('');
-    try {
-      const response = await fetch(`/api/lists/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: trimmed }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao atualizar nome');
-      }
-
-      setList((prev) => (prev ? { ...prev, name: data.list.name } : prev));
-      setEditingListName(false);
-      showSuccess('Nome da lista atualizado');
-    } catch {
-      setError('Erro ao salvar nome da lista');
-    } finally {
-      setSavingListName(false);
-    }
-  }, [id, list, listNameValue, showSuccess]);
-
-  const cancelEditingListName = useCallback(() => {
-    setListNameValue('');
-    setEditingListName(false);
-    setError('');
-  }, []);
-
-  /** Inicia edição do mês da lista */
-  const startEditingListMonth = useCallback(() => {
-    if (!list) return;
-    setListMonthValue(list.month);
-    setEditingListMonth(true);
-  }, [list]);
-
-  /** Salva novo mês da lista (PATCH /api/lists/[id]) */
-  const handleSaveListMonth = useCallback(async () => {
-    const trimmed = listMonthValue.trim();
-    const monthRegex = /^\d{4}-\d{2}$/;
-    if (!monthRegex.test(trimmed)) {
-      setError('Formato de mês inválido. Use YYYY-MM');
-      return;
-    }
-    const [, m] = trimmed.split('-');
-    const monthNum = Number(m);
-    if (monthNum < 1 || monthNum > 12) {
-      setError('Mês inválido. Use um mês entre 01 e 12.');
-      return;
-    }
-
-    if (trimmed === list?.month) {
-      setEditingListMonth(false);
-      return;
-    }
-
-    setSavingListMonth(true);
-    setError('');
-    try {
-      const response = await fetch(`/api/lists/${id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ month: trimmed }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao atualizar mês');
-      }
-
-      setList((prev) => (prev ? { ...prev, month: data.list.month } : prev));
-      setEditingListMonth(false);
-      showSuccess('Mês da lista atualizado');
-    } catch {
-      setError('Erro ao salvar mês da lista');
-    } finally {
-      setSavingListMonth(false);
-    }
-  }, [id, list, listMonthValue, showSuccess]);
-
-  const cancelEditingListMonth = useCallback(() => {
-    setListMonthValue('');
-    setEditingListMonth(false);
-    setError('');
-  }, []);
-
   /** Sheet de orçamento: ao abrir, foca o painel (foco entra no sheet) */
-  useEffect(() => {
-    if (isBudgetSheetOpen) {
-      budgetSheetRef.current?.focus();
-    }
-  }, [isBudgetSheetOpen]);
-
   /** Adiciona item via barra de base (quick-add estilo Listonic).
    *  Payload mínimo: { name, quantity: 1, unit: 'un' } — SEM price/category
    *  (coluna fica NULL → auto-guess pela categoria via resolveItemCategory). */
@@ -458,7 +351,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   /** Alterna status comprado/pendente de um item */
   const handleToggleComplete = async (item: ItemData) => {
-    const newStatus = item.completed === '1' ? '0' : '1';
+    const isCompleted = normalizeCompleted(item.completed) === '1';
+    const newStatus = isCompleted ? '0' : '1';
 
     // Optimistic update — atualiza UI imediatamente
     setItems((prev) =>
@@ -482,13 +376,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         setError('Erro ao atualizar item');
       } else {
         if (newStatus === '0') {
-          // Desmarcou: limpa preço do estado
+          // Desmarcou: limpa preço do estado e fecha histórico se estiver aberto
           setPriceInputs((prev) => ({ ...prev, [item.id]: '' }));
           setItems((prev) =>
             prev.map((i) =>
               i.id === item.id ? { ...i, price: null } : i
             )
           );
+          if (showPriceHistory === item.id) {
+            setShowPriceHistory(null);
+          }
         } else {
           // Marcou como comprado: foca automaticamente no input de preço
           setFocusPriceItemId(item.id);
@@ -637,13 +534,110 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
+  /** Abre o modal de edição unificado com os dados atuais da lista */
+  const openEditModal = useCallback(() => {
+    if (!list) return;
+    setEditListName(list.name);
+    setEditListMonth(list.month);
+    setEditListBudget(String(list.budget));
+    setEditListError('');
+    setIsEditModalOpen(true);
+    editModalTriggerRef.current?.focus();
+  }, [list]);
+
+  /** Fecha o modal de edição unificado */
+  const closeEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+    editModalTriggerRef.current?.focus();
+  }, []);
+
+  /** Salva edição unificada da lista (nome, mês, orçamento) */
+  const handleSaveEditList = useCallback(async () => {
+    if (!list) return;
+    const trimmedName = editListName.trim();
+    const trimmedMonth = editListMonth.trim();
+    const monthRegex = /^\d{4}-\d{2}$/;
+    if (!trimmedName) {
+      setEditListError('Nome da lista não pode ser vazio');
+      return;
+    }
+    if (!monthRegex.test(trimmedMonth)) {
+      setEditListError('Mês inválido. Use YYYY-MM');
+      return;
+    }
+    const [, m] = trimmedMonth.split('-');
+    const monthNum = Number(m);
+    if (monthNum < 1 || monthNum > 12) {
+      setEditListError('Mês inválido. Use um mês entre 01 e 12.');
+      return;
+    }
+
+    setEditListSaving(true);
+    setEditListError('');
+    try {
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: trimmedName,
+          month: trimmedMonth,
+          budget: Number(editListBudget) || 0,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar lista');
+      }
+
+      setList((prev) => (prev ? { ...prev, ...data.list } : prev));
+      closeEditModal();
+      showSuccess('Lista atualizada');
+    } catch {
+      setEditListError('Erro ao salvar alterações');
+    } finally {
+      setEditListSaving(false);
+    }
+  }, [id, list, editListName, editListMonth, editListBudget, closeEditModal, showSuccess]);
+
+  /** Arquivar/desarquivar a lista a partir do modal de edição */
+  const handleArchiveFromModal = useCallback(async () => {
+    if (!list) return;
+    const isArchived = !!list.archived_at;
+    const confirmMessage = isArchived
+      ? `Desarquivar lista "${list.name}"? Ela voltará a aparecer na listagem principal.`
+      : `Arquivar lista "${list.name}"? Ela será ocultada da listagem principal.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      setEditListError('');
+      const response = await fetch(`/api/lists/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived_at: !isArchived }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao atualizar lista');
+      }
+
+      setList((prev) => (prev ? { ...prev, archived_at: data.list.archived_at } : prev));
+      closeEditModal();
+      showSuccess(isArchived ? 'Lista desarquivada' : 'Lista arquivada');
+    } catch {
+      setEditListError('Erro ao arquivar lista');
+    }
+  }, [id, list, closeEditModal, showSuccess]);
+
   /** Salva preço para um item comprado */
   const handleSavePrice = async (itemId: string) => {
     const priceStr = priceInputs[itemId];
     if (!priceStr) return;
 
     const priceValue = parseFloat(priceStr.replace(',', '.'));
-    if (isNaN(priceValue) || priceValue < 0) {
+    if (isNaN(priceValue) || priceValue < 0 || priceValue > 999999.99) {
       setError('Preço inválido');
       return;
     }
@@ -686,13 +680,16 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   /** Atualiza valor do input de preço */
   const handlePriceChange = (itemId: string, value: string) => {
-    setPriceInputs((prev) => ({ ...prev, [itemId]: value }));
+    const sanitized = value.replace(/[^0-9.,]/g, '');
+    setPriceInputs((prev) => ({ ...prev, [itemId]: sanitized }));
     if (error) setError('');
   };
 
   // Cálculos do resumo
   const totalItems = items.length;
-  const completedItems = items.filter((i) => i.completed === '1').length;
+  const completedItems = items
+    .filter((i) => normalizeCompleted(i.completed) === '1')
+    .length;
   const pendingItems = totalItems - completedItems;
   const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
@@ -704,14 +701,13 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   // Item comprado sem preço não soma, mas não quebra o cálculo.
   const totalSpent = sumCompletedSpent(items);
   const budget = Number(list?.budget ?? 0);
-  const remaining = budget - totalSpent;
 
   /** Renderiza cada linha de item da lista (reutilizado nas seções de pendentes e comprados).
    *  Layout compacto estilo Listonic (D6/D7/D5): círculo 44px para marcar comprado, nome truncado,
    *  chip de quantidade (toca → edição com foco no qty), sub-linha de preço só quando comprado,
    *  ações editar/excluir de 44px e histórico de preços inline. */
   const renderListItem = (item: ItemData) => {
-    const isCompleted = item.completed === '1';
+    const isCompleted = normalizeCompleted(item.completed) === '1';
     const currentPrice = priceInputs[item.id] || '';
     const cat = getCategoryById(resolveItemCategory(item));
     const isHistoryOpen = showPriceHistory === item.id;
@@ -720,7 +716,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       <li
         key={item.id}
         className={`rounded-lg transition-colors duration-150
-          ${isCompleted ? 'bg-green-50/40' : 'hover:bg-gray-50'}`}
+          ${isCompleted ? 'bg-green-50/40' : 'hover:bg-[var(--app-muted)]'}`}
       >
         <div className="flex items-start gap-2 px-1.5 sm:px-2 py-1.5">
           {editingItemId === item.id ? (
@@ -731,7 +727,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-base
+                  className="flex-1 min-w-0 px-3 py-2 border border-[var(--app-border)] rounded-lg text-base
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   aria-label="Nome do item"
                   autoFocus={editFocusField !== 'qty'}
@@ -748,7 +744,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="w-11 h-11 shrink-0 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                  className="w-11 h-11 shrink-0 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label="Cancelar edição"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -763,7 +759,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   onChange={(e) => setEditQty(e.target.value)}
                   min="0.01"
                   step="0.01"
-                  className="w-20 px-2 py-2 border border-gray-300 rounded-lg text-base text-center
+                  className="w-20 px-2 py-2 border border-[var(--app-border)] rounded-lg text-base text-center
                              focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   aria-label="Quantidade"
                   autoFocus={editFocusField === 'qty'}
@@ -771,8 +767,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <select
                   value={editUnit}
                   onChange={(e) => setEditUnit(e.target.value)}
-                  className="px-2 py-2 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="px-2 py-2 border border-[var(--app-border)] rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--app-surface)]"
                   aria-label="Unidade"
                 >
                   {UNIT_OPTIONS.map((opt) => (
@@ -784,8 +780,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <select
                   value={editCategory}
                   onChange={(e) => setEditCategory(e.target.value)}
-                  className="flex-1 min-w-[180px] px-2 py-2 border border-gray-300 rounded-lg text-base
-                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  className="flex-1 min-w-[180px] px-2 py-2 border border-[var(--app-border)] rounded-lg text-base
+                             focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-[var(--app-surface)]"
                   aria-label="Seção / Categoria no mercado"
                 >
                   <option value="">Sem categoria (detectar pelo nome)</option>
@@ -807,7 +803,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2
                   ${isCompleted
                     ? 'bg-green-500 border-green-500 text-white'
-                    : 'border-gray-300 hover:border-green-500'
+                    : 'border-[var(--app-border)] hover:border-green-500'
                   }`}
                 aria-label={
                   isCompleted
@@ -828,7 +824,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="flex items-baseline gap-2">
                   <span
                     className={`flex-1 min-w-0 truncate text-base font-medium ${
-                      isCompleted ? 'line-through text-gray-500' : 'text-gray-900'
+                      isCompleted ? 'line-through text-[var(--app-text-secondary)]' : 'text-[var(--app-text)]'
                     }`}
                   >
                     <span className="mr-1 text-xs opacity-75" aria-hidden="true">{cat.icon}</span>
@@ -838,7 +834,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <button
                     onClick={() => startEdit(item, 'qty')}
                     className="shrink-0 min-h-11 -my-1.5 px-1.5 flex items-center rounded-lg
-                               text-sm font-semibold text-gray-700 hover:bg-gray-100
+                               text-sm font-semibold text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)]
                                focus-visible:ring-2 focus-visible:ring-blue-500"
                     aria-label={`Quantidade ${item.quantity} ${item.unit}; toque para editar ${item.name}`}
                   >
@@ -846,73 +842,71 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   </button>
                 </div>
 
-                {/* Sub-linha de preço — apenas quando comprado */}
-                {isCompleted && (
-                  <div className="flex items-center gap-2 mt-0.5 min-h-11">
-                    {item.price != null ? (
-                      <>
-                        <span
-                          className="text-sm font-medium text-green-700"
-                          aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
-                        >
-                          {formatCurrency(Number(item.price))}
-                        </span>
-                        <button
-                          ref={(el) => {
-                            historyToggleRefs.current[item.id] = el;
-                          }}
-                          onClick={() => togglePriceHistory(item.id)}
-                          className="min-h-11 -my-1.5 px-1.5 text-xs font-medium text-blue-600 underline rounded-lg
-                                     hover:text-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500"
-                          aria-expanded={isHistoryOpen}
-                          aria-controls={`price-history-${item.id}`}
-                          aria-label={isHistoryOpen ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
-                        >
-                          {isHistoryOpen ? 'Ocultar' : 'Histórico'}
-                        </button>
-                      </>
-                    ) : (
-                      /* Input de preço para registrar (compacto) */
-                      <div className="flex items-center gap-2 w-full">
-                        <label
-                          htmlFor={`price-${item.id}`}
-                          className="text-sm text-gray-600 whitespace-nowrap"
-                        >
-                          Preço:
-                        </label>
-                        <input
-                          id={`price-${item.id}`}
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0,00"
-                          value={currentPrice}
-                          onChange={(e) => handlePriceChange(item.id, e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleSavePrice(item.id);
-                            }
-                          }}
-                          autoFocus={focusPriceItemId === item.id}
-                          className="w-20 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          aria-label={`Digite o preço de ${item.name}`}
-                        />
-                        <button
-                          onClick={() => handleSavePrice(item.id)}
-                          disabled={!currentPrice || savingPrice[item.id]}
-                          className="min-h-11 -my-1.5 px-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          aria-label={
-                            savingPrice[item.id]
-                              ? 'Salvando preço...'
-                              : `Salvar preço de ${item.name}`
+                {/* Sub-linha de preço — sempre visível */}
+                <div className="flex items-center gap-2 mt-0.5 min-h-11">
+                  {item.price != null ? (
+                    <>
+                      <span
+                        className="text-sm font-medium text-green-700"
+                        aria-label={`Preço registrado: ${formatCurrency(Number(item.price))}`}
+                      >
+                        {formatCurrency(Number(item.price))}
+                      </span>
+                      <button
+                        ref={(el) => {
+                          historyToggleRefs.current[item.id] = el;
+                        }}
+                        onClick={() => togglePriceHistory(item.id)}
+                        className="min-h-11 -my-1.5 px-1.5 text-xs font-medium text-blue-600 underline rounded-lg
+                                   hover:text-blue-800 focus-visible:ring-2 focus-visible:ring-blue-500"
+                        aria-expanded={isHistoryOpen}
+                        aria-controls={`price-history-${item.id}`}
+                        aria-label={isHistoryOpen ? `Ocultar histórico de ${item.name}` : `Ver histórico de ${item.name}`}
+                      >
+                        {isHistoryOpen ? 'Ocultar' : 'Histórico'}
+                      </button>
+                    </>
+                  ) : (
+                    /* Input de preço para registrar (compacto) */
+                    <div className="flex items-center gap-2 w-full">
+                      <label
+                        htmlFor={`price-${item.id}`}
+                        className="text-sm text-[var(--app-text-secondary)] whitespace-nowrap"
+                      >
+                        Preço:
+                      </label>
+                      <input
+                        id={`price-${item.id}`}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={currentPrice}
+                        onChange={(e) => handlePriceChange(item.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSavePrice(item.id);
                           }
-                        >
-                          {savingPrice[item.id] ? '...' : 'OK'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                        }}
+                        autoFocus={focusPriceItemId === item.id}
+                        className="w-20 px-2 py-1 text-sm border border-[var(--app-border)] rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        aria-label={`Digite o preço de ${item.name}`}
+                      />
+                      <button
+                        onClick={() => handleSavePrice(item.id)}
+                        disabled={!currentPrice || savingPrice[item.id]}
+                        className="min-h-11 -my-1.5 px-3 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:visible:ring-2 focus:visible:ring-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label={
+                          savingPrice[item.id]
+                            ? 'Salvando preço...'
+                            : `Salvar preço de ${item.name}`
+                        }
+                      >
+                        {savingPrice[item.id] ? '...' : 'OK'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Ações secundárias — discretas, alvo 44px */}
@@ -922,6 +916,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg
                              transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label={`Editar ${item.name}`}
+                  title={`Editar ${item.name}`}
                 >
                   <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -932,6 +927,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg
                              transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-blue-500"
                   aria-label={`Remover ${item.name}`}
+                  title={`Remover ${item.name}`}
                 >
                   <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -949,7 +945,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               historyPanelRefs.current[item.id] = el;
             }}
             id={`price-history-${item.id}`}
-            className="mx-1.5 sm:mx-2 mb-1.5 rounded-lg border border-gray-200 bg-gray-50/80 p-3"
+            className="mx-1.5 sm:mx-2 mb-1.5 rounded-lg border border-[var(--app-border)] bg-gray-50/80 p-3"
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.preventDefault();
@@ -958,10 +954,10 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             }}
           >
             <div className="flex items-center justify-between gap-2 mb-2">
-              <p className="text-sm font-semibold text-gray-700">📊 Histórico — {item.name}</p>
+              <p className="text-sm font-semibold text-[var(--app-text-secondary)]">📊 Histórico — {item.name}</p>
               <button
                 onClick={() => closePriceHistory(item.id)}
-                className="min-h-11 -my-1.5 px-1.5 text-sm text-gray-600 hover:text-gray-900 rounded-lg
+                className="min-h-11 -my-1.5 px-1.5 text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text)] rounded-lg
                            focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Fechar histórico de preços"
               >
@@ -978,7 +974,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Carregando">
-        <div className="text-gray-600 text-base">Carregando lista...</div>
+        <div className="text-[var(--app-text-secondary)] text-base">Carregando lista...</div>
       </div>
     );
   }
@@ -987,7 +983,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 text-base mb-4">Lista não encontrada</p>
+          <p className="text-[var(--app-text-secondary)] text-base mb-4">Lista não encontrada</p>
           <Link
             href="/dashboard"
             className="text-blue-600 hover:underline text-base"
@@ -1001,121 +997,47 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32 sm:pb-24">
+    <div className="h-screen flex flex-col bg-[var(--app-bg)]">
       {/* Header sticky único (D1/D2): "← Voltar", nome + mês curto, trigger do resumo,
           excluir e miniStatus "x de y · %" (D10). Resumo vira accordion colapsado por
           padrão (padrão #54) — contagem/progresso/data ficam SÓ aqui (redundância zero). */}
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm" role="banner">
+      <header className="sticky top-0 z-30 bg-[var(--app-surface)] border-b border-[var(--app-border)] shadow-sm" role="banner">
         <div className="mx-auto max-w-2xl px-4">
           {/* Linha 1 */}
           <div className="flex items-center justify-between gap-2 min-h-14">
-            <Link
-              href="/dashboard"
-              className="min-h-11 flex items-center gap-1 text-gray-600 hover:text-gray-900 text-base shrink-0"
-              aria-label="Voltar ao painel"
-            >
-              ← Voltar
-            </Link>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="sm:hidden w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Abrir menu"
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <Link
+                href="/dashboard"
+                className="min-h-11 hidden sm:flex items-center gap-1 text-[var(--app-text-secondary)] hover:text-[var(--app-accent)] text-base shrink-0"
+                aria-label="Voltar ao painel"
+              >
+                ← Voltar
+              </Link>
+            </div>
             <div className="flex-1 min-w-0 text-center">
-              {editingListName ? (
-                <div className="flex items-center justify-center gap-2">
-                  <input
-                    type="text"
-                    value={listNameValue}
-                    onChange={(e) => setListNameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleSaveListName();
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault();
-                        cancelEditingListName();
-                      }
-                    }}
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    aria-label="Novo nome da lista"
-                    autoFocus
-                    disabled={savingListName}
-                  />
-                  <button
-                    onClick={handleSaveListName}
-                    disabled={savingListName}
-                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                    aria-label="Salvar nome da lista"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={cancelEditingListName}
-                    disabled={savingListName}
-                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                    aria-label="Cancelar edição do nome"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ) : editingListMonth ? (
-                <div className="flex items-center justify-center gap-2">
-                  <input
-                    type="text"
-                    value={listMonthValue}
-                    onChange={(e) => setListMonthValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void handleSaveListMonth();
-                      } else if (e.key === 'Escape') {
-                        e.preventDefault();
-                        cancelEditingListMonth();
-                      }
-                    }}
-                    placeholder="YYYY-MM"
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-base text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent w-24"
-                    aria-label="Novo mês da lista (YYYY-MM)"
-                    autoFocus
-                    disabled={savingListMonth}
-                  />
-                  <button
-                    onClick={handleSaveListMonth}
-                    disabled={savingListMonth}
-                    className="w-8 h-8 flex items-center justify-center text-green-600 hover:bg-green-100 rounded-lg transition-colors"
-                    aria-label="Salvar mês da lista"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={cancelEditingListMonth}
-                    disabled={savingListMonth}
-                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                    aria-label="Cancelar edição do mês"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <h1 className="text-lg font-bold text-gray-900 truncate">
-                    {list.name}
-                    <span className="hidden sm:inline text-sm font-normal text-gray-500"> · {formatMonthShort(list.month)}</span>
-                  </h1>
-                  <p className="hidden sm:block text-xs text-gray-500" aria-live="polite">
-                    {miniStatus}
-                  </p>
-                </>
-              )}
+              <h1 className="text-lg font-bold text-[var(--app-text)] truncate">
+                {list.name}
+                <span className="hidden sm:inline text-sm font-normal text-[var(--app-text-secondary)]"> · {formatMonthShort(list.month)}</span>
+              </h1>
+              <p className="hidden sm:block text-xs text-[var(--app-text-secondary)]" aria-live="polite">
+                {miniStatus}
+              </p>
             </div>
             <div className="flex items-center shrink-0">
               <button
                 onClick={() => setIsSummaryCollapsed((prev) => !prev)}
-                className="hidden sm:flex w-11 h-11 items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="hidden sm:flex w-11 h-11 items-center justify-center text-[var(--app-text-secondary)] hover:text-[var(--app-text)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
                 aria-expanded={!isSummaryCollapsed}
                 aria-controls="list-summary"
                 aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
@@ -1131,30 +1053,17 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              {!editingListName && !editingListMonth && (
-                <button
-                  onClick={startEditingListMonth}
-                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label="Editar mês da lista"
-                  title="Editar mês"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </button>
-              )}
-              {!editingListName && (
-                <button
-                  onClick={startEditingListName}
-                  className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
-                  aria-label="Editar nome da lista"
-                  title="Editar nome"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
-              )}
+              <button
+                onClick={openEditModal}
+                className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Editar lista"
+                title="Editar lista"
+                ref={editModalTriggerRef}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
               <button
                 onClick={handleDeleteList}
                 className="w-11 h-11 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
@@ -1172,7 +1081,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           <div className="sm:hidden flex items-center gap-2 min-h-11 border-t border-gray-100">
             <button
               onClick={() => setIsSummaryCollapsed((prev) => !prev)}
-              className="flex-1 min-h-11 flex items-center gap-2 text-left text-sm text-gray-600 hover:text-gray-900 transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="flex-1 min-h-11 flex items-center gap-2 text-left text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text)] transition-colors rounded-lg focus-visible:ring-2 focus-visible:ring-blue-500"
               aria-expanded={!isSummaryCollapsed}
               aria-controls="list-summary"
               aria-label={isSummaryCollapsed ? 'Mostrar resumo da lista' : 'Ocultar resumo da lista'}
@@ -1197,25 +1106,25 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
           {/* Linha 3: resumo colapsável (accordion #54) */}
           <div id="list-summary" hidden={isSummaryCollapsed} className="border-t border-gray-100 py-4">
-            <p className="text-sm text-gray-600 mb-3">{formatMonth(list.month)}</p>
+            <p className="text-sm text-[var(--app-text-secondary)] mb-3">{formatMonth(list.month)}</p>
             <div className="grid grid-cols-3 gap-3 text-center" role="region" aria-label="Resumo da lista">
               <div>
-                <div className="text-lg font-bold text-gray-900" aria-label={`${totalItems} itens no total`}>
+                <div className="text-lg font-bold text-[var(--app-text)]" aria-label={`${totalItems} itens no total`}>
                   {totalItems}
                 </div>
-                <div className="text-xs text-gray-600">Total</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Total</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-green-700" aria-label={`${completedItems} itens comprados`}>
                   {completedItems}
                 </div>
-                <div className="text-xs text-gray-600">Comprados</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Comprados</div>
               </div>
               <div>
                 <div className="text-lg font-bold text-amber-700" aria-label={`${pendingItems} itens pendentes`}>
                   {pendingItems}
                 </div>
-                <div className="text-xs text-gray-600">Pendentes</div>
+                <div className="text-xs text-[var(--app-text-secondary)]">Pendentes</div>
               </div>
             </div>
             {totalItems > 0 && (
@@ -1237,8 +1146,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </header>
 
-      {/* Conteúdo principal */}
-      <main className="container mx-auto px-4 py-6 max-w-2xl" role="main">
+      {/* Conteúdo principal scrollável */}
+      <main className="flex-1 overflow-y-auto mx-auto max-w-2xl px-4 py-6 pb-40 sm:pb-28" role="main">
         {/* Mensagens de estado */}
         {error && (
           <div
@@ -1275,9 +1184,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             única de itens em mobile E desktop. */}
 
         {/* Lista de itens — box único com linhas planas + dividers (estilo Listonic, D6) */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+        <div className="bg-[var(--app-surface)] rounded-xl shadow-sm border border-[var(--app-border)] p-4 sm:p-6">
           {items.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 text-[var(--app-text-secondary)]">
               <div className="text-4xl mb-3" aria-hidden="true">📝</div>
               <p className="text-base">Nenhum item ainda. Adicione o primeiro!</p>
             </div>
@@ -1304,7 +1213,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                       items.filter((item) => item.completed === '0')
                     ).map((group) => (
                       <div key={group.categoryId} className="space-y-2">
-                        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                        <h3 className="text-xs font-bold text-[var(--app-text-secondary)] uppercase tracking-wider flex items-center gap-1.5 pt-1">
                           <span aria-hidden="true">{group.icon}</span> {group.name} ({group.items.length})
                         </h3>
                         <ul className="divide-y divide-gray-100" role="list" aria-label={`Itens pendentes de ${group.name}`}>
@@ -1322,14 +1231,14 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="pt-4">
                   <button
                     onClick={() => setIsCompletedCollapsed((prev) => !prev)}
-                    className="w-full flex items-center justify-between min-h-[44px] text-left font-semibold text-gray-700 hover:text-gray-900 transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                    className="w-full flex items-center justify-between min-h-[44px] text-left font-semibold text-[var(--app-text-secondary)] hover:text-[var(--app-text)] transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     aria-expanded={!isCompletedCollapsed}
                     aria-controls="completed-items-list"
                   >
                     <span className="flex items-center gap-2 text-base">
                       <span>✅</span> Comprados ({completedItems})
                     </span>
-                    <span className="text-sm text-gray-500 flex items-center gap-1 font-normal">
+                    <span className="text-sm text-[var(--app-text-secondary)] flex items-center gap-1 font-normal">
                       {isCompletedCollapsed ? 'Mostrar' : 'Ocultar'}
                       <svg
                         aria-hidden="true"
@@ -1354,7 +1263,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     aria-label="Itens comprados"
                   >
                     {items
-                      .filter((item) => item.completed === '1')
+                      .filter((item) => normalizeCompleted(item.completed) === '1')
                       .map((item) => renderListItem(item))}
                   </ul>
                 </div>
@@ -1368,7 +1277,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
           ItemSuggestions + chip de orçamento (abre o sheet para cima).
           Substitui o footer-accordion de orçamento, o FAB e o form inline
           desktop — entrada única de adição em mobile E desktop. */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-[var(--app-surface)] border-t border-[var(--app-border)] shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <div
           className="max-w-2xl mx-auto px-3 sm:px-4 py-2.5 flex flex-col gap-1.5"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}
@@ -1403,31 +1312,28 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </form>
 
-            {/* Chip de orçamento — trigger do sheet (sempre visível) */}
+            {/* Chip de orçamento — mostra gasto total fixo; ao clicar expande o sheet com resumo */}
             <button
               ref={budgetChipRef}
               onClick={openBudgetSheet}
-              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:bg-gray-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 shrink-0 flex items-center gap-1.5 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface)] text-sm font-semibold hover:bg-[var(--app-muted)] transition-colors focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-expanded={isBudgetSheetOpen}
               aria-controls="budget-sheet"
               aria-haspopup="dialog"
+              aria-label="Ver resumo do orçamento"
+              title="Ver resumo do orçamento"
             >
               <span aria-hidden="true">💰</span>
-              <span className={budget > 0 ? (remaining < 0 ? 'text-red-700' : 'text-green-700') : 'text-gray-700'}>
+              <span className="text-[var(--app-text-secondary)]">
                 {budget > 0 ? (
-                  <>
-                    {remaining >= 0 && <span className="hidden sm:inline text-xs font-medium">Ainda: </span>}
-                    {formatCurrency(remaining)}
-                  </>
+                  <span className="text-amber-700">Gasto: {formatCurrency(totalSpent)}</span>
                 ) : (
                   <span className="text-xs font-medium">Definir orçamento</span>
                 )}
               </span>
               <span className="sr-only">
                 {budget > 0
-                  ? remaining < 0
-                    ? `Estourou em ${formatCurrency(Math.abs(remaining))}`
-                    : `Ainda tem para gastar: ${formatCurrency(remaining)}`
+                  ? `Gasto total: ${formatCurrency(totalSpent)}`
                   : 'Definir orçamento'}
               </span>
               <svg
@@ -1463,15 +1369,15 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
             ref={budgetSheetRef}
             tabIndex={-1}
             onKeyDown={handleBudgetSheetKeyDown}
-            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
+            className="absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-[var(--app-surface)] rounded-t-2xl shadow-xl max-h-[75vh] flex flex-col animate-in slide-in-from-bottom duration-200 focus:outline-none"
           >
             <div className="flex items-center justify-between px-4 sm:px-6 pt-4 pb-2 shrink-0">
-              <h2 id="budget-sheet-title" className="text-lg font-semibold text-gray-900">
+              <h2 id="budget-sheet-title" className="text-lg font-semibold text-[var(--app-text)]">
                 Orçamento
               </h2>
               <button
                 onClick={closeBudgetSheet}
-                className="w-11 h-11 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="w-11 h-11 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
                 aria-label="Fechar orçamento"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -1480,11 +1386,149 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
               </button>
             </div>
             <div className="overflow-y-auto p-4 sm:p-6 pt-0">
-              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={remaining} onSaveBudget={handleSaveBudget} />
+              <BudgetSummary budget={budget} totalSpent={totalSpent} remaining={budget - totalSpent} onSaveBudget={handleSaveBudget} />
             </div>
           </div>
         </div>
       )}
+
+      {/* Modal de edição unificada da lista */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeEditModal}>
+          <div
+            className="bg-[var(--app-surface)] rounded-xl shadow-xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-list-title"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="edit-list-title" className="text-lg font-bold text-[var(--app-text)]">Editar Lista</h2>
+              <button
+                onClick={closeEditModal}
+                className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Fechar edição"
+                title="Fechar edição"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {editListError && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm mb-4" role="alert">{editListError}</div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="edit-list-name" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Nome</label>
+                <input
+                  id="edit-list-name"
+                  type="text"
+                  value={editListName}
+                  onChange={(e) => setEditListName(e.target.value)}
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-list-month" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Mês (YYYY-MM)</label>
+                <input
+                  id="edit-list-month"
+                  type="text"
+                  value={editListMonth}
+                  onChange={(e) => setEditListMonth(e.target.value)}
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-list-budget" className="block text-sm font-medium text-[var(--app-text-secondary)] mb-1">Orçamento (R$)</label>
+                <input
+                  id="edit-list-budget"
+                  type="number"
+                  value={editListBudget}
+                  onChange={(e) => setEditListBudget(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 mt-6">
+              <button
+                type="button"
+                onClick={handleArchiveFromModal}
+                className="px-4 py-2 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+              >
+                {list?.archived_at ? 'Desarquivar' : 'Arquivar'}
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  disabled={editListSaving}
+                  className="px-4 py-2 text-sm font-medium text-[var(--app-text-secondary)] bg-[var(--app-muted)] rounded-lg hover:bg-[var(--app-muted)] disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEditList}
+                  disabled={editListSaving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors focus-visible:ring-2 focus-visible:ring-blue-500"
+                >
+                  {editListSaving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawer menu mobile */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)} aria-hidden="true" />
+          <div className="absolute inset-y-0 left-0 w-72 max-w-[80%] bg-[var(--app-surface)] shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-[var(--app-border)]">
+              <h2 id="mobile-menu-title" className="text-base font-bold text-[var(--app-text)]">Menu</h2>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="w-10 h-10 flex items-center justify-center text-[var(--app-text-secondary)] hover:bg-[var(--app-muted)] rounded-lg transition-colors"
+                aria-label="Fechar menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); openEditModal(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
+              >
+                <span>✏️</span> Editar lista
+              </button>
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); handleDeleteList(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-red-700 hover:bg-red-50 transition-colors"
+              >
+                <span>🗑️</span> Excluir lista
+              </button>
+              <button
+                onClick={() => { setIsMobileMenuOpen(false); setIsBugModalOpen(true); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-base font-medium text-[var(--app-text)] hover:bg-[var(--app-muted)] transition-colors"
+              >
+                <span>🐛</span> Reportar bug
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bug report controlado (sem FAB global) */}
+      <BugReportButton open={isBugModalOpen} onOpenChange={setIsBugModalOpen} />
     </div>
   );
 }

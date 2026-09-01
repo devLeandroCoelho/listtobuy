@@ -2,6 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
+> Última atualização: 2026-09-01 (frontend-dev: **issue #104 parcial concluída** — modos de visualização no dashboard: segmented control acessível "Todas"/"Por mês"/"Arquivadas" (radiogroup, alvos ≥44px), agrupamento por mês com seções h2 + contagem, persistência em localStorage `listtobuy-view-mode`; query Supabase: "Todas"/"Por mês" → ativas, "Arquivadas" → arquivadas; filtros nome/mês preservados. Branch `feat/104-view-modes`, PR #169, 135 testes ok. Pendente: validação manual/QA + merge pelo dev-manager)
 > Última atualização: 2026-08-13 (rodada autopilot: **CI de master destravado** — lockfile regenerado com npm 10 adicionando esbuild@0.28.2 (peer do vite 8 via vitest) — PR #49 mergeado; **colisão de keywords da categorização corrigida** — PR #50 mergeado (tokenização por palavra inteira + fix typo 'espinhafre'→'espinafre'; 65 testes); **issue #24 (P5 smoke+Lighthouse) encerrada** com evidência; migração 005 aplicada em produção 12/08 23:21; task-api: PRs #6/#7/#8 mergeados; frontend-lab criado com 1º lote; Anomalithic D5 pendente confirmado; **auditoria formal pós-merge (13/08)**: qa-engineer + security-blue-team APROVADO — 0 CRITICAL; 1 MAJOR (focus trap do modal, #42) + 12 MINOR p/ backlog)
 
 ---
@@ -52,6 +53,8 @@ Analytics:   a definir
 | List Sharing | 🟢 PR #12 (feat/sharing) — Tabela list_shares, API CRUD, componente ShareList |
 | Fixes | 🟢 PRs #9, #10, #13 (types/ESLint/CI env), #14 (secrets gitignore), #15 (migration 001), #17 (RLS registro) |
 | Contrato price | 🟢 **PR #60 (fix/56-price-contract, 13/08)** — `price`/`value` normalizado como `number \| null` na fronteira (`normalizePrice` em `src/lib/list-items.ts`, aplicado em `GET/POST /api/prices`); PostgREST devolve NUMERIC como string em numeral alto → soma do orçamento (#56) quebrava por concatenação. Testes: 99/99 (antes 82), tsc 0 erros, lint limpo. Aguardando review do dev-manager |
+| LGPD | 🟢 Issue #140 aberta — adequação em andamento (cookie consent, política de privacidade, termos de uso, direito ao esquecimento, portabilidade) |
+| IA / Receitas | 🟡 **No roadmap (Fase 2)** — feature "Lista com IA": ao criar uma lista, o usuário pode digitar uma receita (ex: "Macarrão a Carbonara") e selecionar "Gerar com IA". O app sugere automaticamente uma lista de ingredientes/itens para comprar e exibe a receita correspondente. A lista gerada pode ser editada antes de salvar. |
 
 ## 4. Decisões Arquiteturais (não reverter sem discussão)
 
@@ -74,6 +77,7 @@ Analytics:   a definir
 | Arquivo | Propósito | Notas |
 |---|---|---|
 | `docs/especificacao.md` | Definição do produto (decisões da entrevista) | Fonte da verdade de produto |
+| `docs/arquitetura.md` | Arquitetura do MVP (tech-lead Ivan, 03/08/2026 — seções 0-13, ADR-1..7) | **Recuperado 14/08** do clone órfão `projetos/lista-de-mercado` (reconciliado/removido na ronda do github-manager; único conteúdo exclusivo do clone) |
 | `ROADMAP.md` | Fases e entregas planejadas | |
 | `project-state.md` | Memória canônica do projeto | Este arquivo |
 | `README.md` | Vitrine pública do projeto (pt-BR, tom comercial) | Criado em 03/08/2026 — pronto para o repo público |

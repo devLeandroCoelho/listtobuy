@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializeItem } from '@/lib/list-items';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * PUT /api/lists/[id]/items/[itemId] — Edita um item (body parcial).
@@ -24,6 +25,10 @@ export async function PUT(request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: atualização de item (60/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['items:update']);
+  if (limited) return limited;
 
   const { id, itemId } = await params;
   const body = await request.json();
@@ -60,14 +65,17 @@ export async function PUT(request: Request, { params }: Params) {
   }
 
   if (body.completed !== undefined) {
-    const completed = Number(body.completed);
-    if (completed !== 0 && completed !== 1) {
+    const completed = body.completed;
+    const isValid =
+      completed === 0 || completed === 1 || completed === '0' || completed === '1';
+    if (!isValid) {
       return NextResponse.json(
         { error: 'completed deve ser 0 (pendente) ou 1 (comprado)' },
         { status: 400 }
       );
     }
-    updates.completed = completed;
+    updates.completed =
+      completed === '0' || completed === '1' ? Number(completed) : completed;
   }
 
   // Categoria opcional: string não-vazia, null (limpa) ou undefined (não altera).
@@ -118,6 +126,10 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: exclusão de item (60/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['items:delete']);
+  if (limited) return limited;
 
   const { id, itemId } = await params;
 

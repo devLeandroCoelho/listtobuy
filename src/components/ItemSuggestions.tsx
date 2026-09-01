@@ -218,7 +218,7 @@ export function ItemSuggestions({
         onFocus={handleFocus}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
+        className="w-full px-4 py-3 border border-[var(--app-border)] rounded-lg text-base
                    focus:ring-2 focus:ring-blue-500 focus:border-transparent
                    placeholder:text-gray-400"
         required={required}
@@ -239,7 +239,7 @@ export function ItemSuggestions({
             id={listboxId}
             role="listbox"
             aria-label="Sugestões de itens"
-            className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-300
+            className="absolute left-0 right-0 top-full mt-1 z-20 bg-[var(--app-surface)] border border-[var(--app-border)]
                        rounded-lg shadow-lg max-h-64 overflow-y-auto"
           >
             {suggestions.map((suggestion, index) => {
@@ -253,7 +253,7 @@ export function ItemSuggestions({
                   onMouseDown={(e) => e.preventDefault()} // mantém o foco no input
                   onClick={() => selectSuggestion(suggestion.name)}
                   className={`cursor-pointer px-4 py-3 text-base break-words ${
-                    isActive ? 'bg-blue-50 text-blue-900' : 'text-gray-900'
+                    isActive ? 'bg-blue-50 text-[var(--app-accent)]' : 'text-[var(--app-text)]'
                   }`}
                 >
                   {suggestion.name}
@@ -262,7 +262,7 @@ export function ItemSuggestions({
             })}
           </ul>
         ) : (
-          <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-white border border-gray-300
+          <div className="absolute left-0 right-0 top-full mt-1 z-20 bg-[var(--app-surface)] border border-[var(--app-border)]
                           rounded-lg shadow-lg px-4 py-3 text-base text-gray-500">
             Nenhuma sugestão encontrada
           </div>

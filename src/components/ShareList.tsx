@@ -61,7 +61,7 @@ export function ShareList({ listId, listName }: ShareListProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow p-4">
+    <div className="bg-[var(--app-surface)] rounded-xl shadow p-4">
       <h3 className="font-semibold mb-3" aria-label={`Compartilhar lista ${listName}`}>
         👥 Compartilhar Lista
       </h3>
@@ -77,7 +77,7 @@ export function ShareList({ listId, listName }: ShareListProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="usuario@email.com"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+            className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
             required
             aria-required="true"
           />
@@ -91,7 +91,7 @@ export function ShareList({ listId, listName }: ShareListProps) {
             id="share-permission"
             value={permission}
             onChange={(e) => setPermission(e.target.value as 'view' | 'edit')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-white"
+            className="w-full px-3 py-2 border border-[var(--app-border)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base bg-[var(--app-surface)]"
             aria-label="Permissão de acesso"
           >
             <option value="view">Apenas visualizar</option>

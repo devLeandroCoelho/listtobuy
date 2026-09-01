@@ -2,6 +2,7 @@
 
 > **Regra de ouro**: TODO agente deve ler este arquivo ANTES de varrer o repositório.
 > Ao final de cada missão, atualize este arquivo com o que mudou.
+> Última atualização: 2026-09-01 (frontend-dev: **issue #104 parcial concluída** — modos de visualização no dashboard: segmented control acessível "Todas"/"Por mês"/"Arquivadas" (radiogroup, alvos ≥44px), agrupamento por mês com seções h2 + contagem, persistência em localStorage `listtobuy-view-mode`; query Supabase: "Todas"/"Por mês" → ativas, "Arquivadas" → arquivadas; filtros nome/mês preservados. Branch `feat/104-view-modes`, PR #169, 135 testes ok. Pendente: validação manual/QA + merge pelo dev-manager)
 > Última atualização: 2026-08-13 (rodada autopilot: **CI de master destravado** — lockfile regenerado com npm 10 adicionando esbuild@0.28.2 (peer do vite 8 via vitest) — PR #49 mergeado; **colisão de keywords da categorização corrigida** — PR #50 mergeado (tokenização por palavra inteira + fix typo 'espinhafre'→'espinafre'; 65 testes); **issue #24 (P5 smoke+Lighthouse) encerrada** com evidência; migração 005 aplicada em produção 12/08 23:21; task-api: PRs #6/#7/#8 mergeados; frontend-lab criado com 1º lote; Anomalithic D5 pendente confirmado; **auditoria formal pós-merge (13/08)**: qa-engineer + security-blue-team APROVADO — 0 CRITICAL; 1 MAJOR (focus trap do modal, #42) + 12 MINOR p/ backlog)
 
 ---

@@ -10,7 +10,7 @@ import { ItemSuggestions } from '@/components/ItemSuggestions';
 import { getCategoryById, guessCategoryByName, CATEGORIES } from '@/lib/categories';
 import { groupItemsByCategory, resolveItemCategory } from '@/lib/grouping';
 import { sumCompletedSpent } from '@/lib/budget';
-import { buildQuickAddPayload } from '@/lib/list-items';
+import { buildQuickAddPayload, normalizeCompleted } from '@/lib/list-items';
 import { BugReportButton } from '@/components/BugReportButton';
 
 /**
@@ -191,7 +191,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
       const rawItems: ItemData[] = data.list.items || [];
       const itemsWithPrices = await Promise.all(
         rawItems.map(async (item) => {
-          if (item.completed === '1') {
+          if (normalizeCompleted(item.completed) === '1') {
             try {
               const priceResponse = await fetch(`/api/prices?item_id=${item.id}`);
               if (priceResponse.ok) {
@@ -351,7 +351,8 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   /** Alterna status comprado/pendente de um item */
   const handleToggleComplete = async (item: ItemData) => {
-    const newStatus = item.completed === '1' ? '0' : '1';
+    const isCompleted = normalizeCompleted(item.completed) === '1';
+    const newStatus = isCompleted ? '0' : '1';
 
     // Optimistic update — atualiza UI imediatamente
     setItems((prev) =>
@@ -686,7 +687,9 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
 
   // Cálculos do resumo
   const totalItems = items.length;
-  const completedItems = items.filter((i) => i.completed === '1').length;
+  const completedItems = items
+    .filter((i) => normalizeCompleted(i.completed) === '1')
+    .length;
   const pendingItems = totalItems - completedItems;
   const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
@@ -704,7 +707,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
    *  chip de quantidade (toca → edição com foco no qty), sub-linha de preço só quando comprado,
    *  ações editar/excluir de 44px e histórico de preços inline. */
   const renderListItem = (item: ItemData) => {
-    const isCompleted = item.completed === '1';
+    const isCompleted = normalizeCompleted(item.completed) === '1';
     const currentPrice = priceInputs[item.id] || '';
     const cat = getCategoryById(resolveItemCategory(item));
     const isHistoryOpen = showPriceHistory === item.id;
@@ -1260,7 +1263,7 @@ export default function ListDetailPage({ params }: { params: Promise<{ id: strin
                     aria-label="Itens comprados"
                   >
                     {items
-                      .filter((item) => item.completed === '1')
+                      .filter((item) => normalizeCompleted(item.completed) === '1')
                       .map((item) => renderListItem(item))}
                   </ul>
                 </div>

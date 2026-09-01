@@ -60,14 +60,17 @@ export async function PUT(request: Request, { params }: Params) {
   }
 
   if (body.completed !== undefined) {
-    const completed = Number(body.completed);
-    if (completed !== 0 && completed !== 1) {
+    const completed = body.completed;
+    const isValid =
+      completed === 0 || completed === 1 || completed === '0' || completed === '1';
+    if (!isValid) {
       return NextResponse.json(
         { error: 'completed deve ser 0 (pendente) ou 1 (comprado)' },
         { status: 400 }
       );
     }
-    updates.completed = completed;
+    updates.completed =
+      completed === '0' || completed === '1' ? Number(completed) : completed;
   }
 
   // Categoria opcional: string não-vazia, null (limpa) ou undefined (não altera).

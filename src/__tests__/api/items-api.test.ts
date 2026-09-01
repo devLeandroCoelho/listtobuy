@@ -229,6 +229,39 @@ describe('PUT /api/lists/[id]/items/[itemId] (category)', () => {
     expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ completed: 1 });
   });
 
+  it('backlog #10: completed "1" (string) → 200 e grava number 1', async () => {
+    const updated = { id: ITEM_ID, name: 'Maçã', completed: 1 };
+    mock = createSupabaseMock({ items: { data: updated } });
+    createClientMock.mockResolvedValue(mock as never);
+
+    const res = await updateItem(
+      makePutRequest({ completed: '1' }),
+      { params: Promise.resolve({ id: LIST_ID, itemId: ITEM_ID }) }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mock.mocks.itemsUpdate).toHaveBeenCalledWith({ completed: 1 });
+  });
+
+  it.each([
+    ['true (boolean)', { completed: true }],
+    ['false (boolean)', { completed: false }],
+    ['null', { completed: null }],
+    ['"x" (string inválida)', { completed: 'x' }],
+    ['2 (fora de range)', { completed: 2 }],
+  ])('backlog #10: completed %s → 400 e nada é atualizado', async (_label, body) => {
+    const res = await updateItem(
+      makePutRequest(body),
+      { params: Promise.resolve({ id: LIST_ID, itemId: ITEM_ID }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: 'completed deve ser 0 (pendente) ou 1 (comprado)',
+    });
+    expect(mock.mocks.itemsUpdate).not.toHaveBeenCalled();
+  });
+
   it('category null → limpa a categoria no update', async () => {
     const res = await updateItem(
       makePutRequest({ category: null }),

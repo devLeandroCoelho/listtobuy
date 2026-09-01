@@ -24,6 +24,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'item_id obrigatório' }, { status: 400 });
   }
 
+  // Verificar ownership do item antes de buscar histórico
+  const { data: item } = await supabase
+    .from('items')
+    .select('id, list_id, lists(user_id)')
+    .eq('id', itemId)
+    .single();
+
+  if (!item || !item.lists || (item.lists as unknown as { user_id: string }).user_id !== user.id) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 404 });
+  }
+
   // Buscar preços do item
   const { data, error } = await supabase
     .from('prices')

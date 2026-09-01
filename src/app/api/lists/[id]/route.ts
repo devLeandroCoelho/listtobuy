@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { serializeItems } from '@/lib/list-items';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * GET /api/lists/[id] — Busca uma lista e seus itens.
@@ -63,6 +64,10 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: atualização de lista (30/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['lists:update']);
+  if (limited) return limited;
 
   const { id } = await params;
   let body: Record<string, unknown>;
@@ -150,6 +155,10 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: exclusão de lista (30/min por usuário)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['lists:delete']);
+  if (limited) return limited;
 
   const { id } = await params;
 

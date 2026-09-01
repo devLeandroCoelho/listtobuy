@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { isValidMonth } from '@/lib/month';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 
 /**
  * POST /api/lists/[id]/duplicate — Duplica uma lista existente com todos os seus itens.
@@ -21,6 +22,10 @@ export async function POST(
   if (!user) {
     return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
   }
+
+  // Rate limiting: duplicação de lista (10/min por usuário — operação pesada)
+  const limited = enforceRateLimit(user.id, RATE_LIMITS['lists:duplicate']);
+  if (limited) return limited;
 
   // Busca a lista original e verifica ownership
   const { data: originalList, error: listError } = await supabase
